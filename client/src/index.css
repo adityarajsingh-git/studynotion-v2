@@ -1,0 +1,6 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body { @apply bg-ink text-muted font-sans antialiased; }
+::selection { @apply bg-amber text-ink; }
