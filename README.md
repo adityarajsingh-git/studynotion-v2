@@ -49,6 +49,17 @@ npm install
 npm run dev                 # http://localhost:5173 (proxies /api to :4000)
 ```
 
+## Tests
+
+```bash
+cd server && npm test     # 45 API tests — real routes against an in-memory MongoDB
+cd client && npm test     # 68 tests — store, components, pages (Vitest + Testing Library)
+```
+
+The server suite boots a throwaway `mongodb-memory-server` per run and drives the
+real Express app through `supertest`, so no `.env` or Atlas cluster is needed.
+`npm run typecheck` in `server/` type-checks the tests alongside `src/`.
+
 ## Project structure
 
 ```
@@ -58,7 +69,9 @@ server/src
 ├── middleware/    auth (JWT + roles) · error handling
 ├── controllers/   auth · categories · courses
 ├── routes/        /api/v2/*
+├── app.ts         express app (exported for tests)
 └── seed.ts        demo data
+server/tests       API integration tests
 
 client/src
 ├── lib/api.ts     typed fetch layer

@@ -1,0 +1,8 @@
+// Typechecks the tests too. The build config deliberately omits them so they
+// never land in dist/.
+{
+  "extends": "./tsconfig.json",
+  // rootDir is cleared because tests live outside src/; nothing is emitted here.
+  "compilerOptions": { "noEmit": true, "rootDir": ".", "types": ["node"] },
+  "include": ["src", "tests", "vitest.config.ts"]
+}
