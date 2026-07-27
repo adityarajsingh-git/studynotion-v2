@@ -12,6 +12,7 @@ import Signup from "./pages/Signup";
 import Catalog from "./pages/Catalog";
 import CourseDetails from "./pages/CourseDetails";
 import Dashboard from "./pages/Dashboard";
+import NotFound from "./pages/NotFound";
 
 export default function App() {
   const dispatch = useDispatch<AppDispatch>();
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="/courses" element={<Catalog />} />
           <Route path="/courses/:id" element={<CourseDetails />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
       <Footer />

@@ -1,8 +1,8 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../store/store";
-import { login } from "../store/authSlice";
+import { clearAuthError, login } from "../store/authSlice";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -10,6 +10,9 @@ export default function Login() {
   const { status, error } = useSelector((s: RootState) => s.auth);
   const dispatch = useDispatch<AppDispatch>();
   const nav = useNavigate();
+
+  // Drop any error left over from the signup form.
+  useEffect(() => { dispatch(clearAuthError()); }, [dispatch]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();

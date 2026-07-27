@@ -1,14 +1,17 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../store/store";
-import { signup } from "../store/authSlice";
+import { clearAuthError, signup } from "../store/authSlice";
 
 export default function Signup() {
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "student" });
   const { status, error } = useSelector((s: RootState) => s.auth);
   const dispatch = useDispatch<AppDispatch>();
   const nav = useNavigate();
+
+  // Drop any error left over from the login form.
+  useEffect(() => { dispatch(clearAuthError()); }, [dispatch]);
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));

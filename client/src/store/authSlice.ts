@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import { api, ApiUser, setToken, getToken } from "../lib/api";
 
-interface AuthState {
+export interface AuthState {
   user: ApiUser | null;
   status: "idle" | "loading" | "error";
   error: string | null;
@@ -13,6 +13,12 @@ export const bootSession = createAsyncThunk("auth/boot", async () => {
   if (!getToken()) return null;
   try { const { user } = await api.me(); return user; }
   catch { setToken(null); return null; }
+});
+
+/** Re-pulls the session after something changes it server-side (e.g. enrolling). */
+export const refreshUser = createAsyncThunk("auth/refresh", async () => {
+  const { user } = await api.me();
+  return user;
 });
 
 export const login = createAsyncThunk("auth/login", async (body: { email: string; password: string }) => {
@@ -35,10 +41,14 @@ const slice = createSlice({
   initialState,
   reducers: {
     logout(state) { setToken(null); state.user = null; },
+    // Login and Signup share one error field — each clears it on mount so a
+    // failure on one form doesn't surface on the other.
+    clearAuthError(state) { state.error = null; state.status = "idle"; },
   },
   extraReducers(b) {
     b.addCase(bootSession.fulfilled, (s, a) => { s.user = a.payload; s.booted = true; });
     b.addCase(bootSession.rejected, (s) => { s.booted = true; });
+    b.addCase(refreshUser.fulfilled, (s, a: PayloadAction<ApiUser>) => { s.user = a.payload; });
     for (const t of [login, signup]) {
       b.addCase(t.pending, (s) => { s.status = "loading"; s.error = null; });
       b.addCase(t.fulfilled, (s, a: PayloadAction<ApiUser>) => { s.status = "idle"; s.user = a.payload; });
@@ -47,5 +57,5 @@ const slice = createSlice({
   },
 });
 
-export const { logout } = slice.actions;
+export const { logout, clearAuthError } = slice.actions;
 export default slice.reducer;

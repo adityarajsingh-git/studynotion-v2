@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
 import { ApiCourse } from "../lib/api";
+import { formatDuration, totalMinutes } from "../lib/format";
 
 export default function CourseCard({ course }: { course: ApiCourse }) {
-  const mins = course.lessons.reduce((a, l) => a + l.durationMin, 0);
+  const mins = totalMinutes(course.lessons);
   return (
     <Link
       to={`/courses/${course._id}`}
@@ -17,7 +18,7 @@ export default function CourseCard({ course }: { course: ApiCourse }) {
         <h3 className="font-semibold text-cream group-hover:text-amber">{course.title}</h3>
         <p className="line-clamp-2 flex-1 text-sm">{course.description}</p>
         <div className="flex items-center justify-between pt-2 text-sm">
-          <span className="text-muted">{course.lessons.length} lessons · {Math.round(mins / 60)}h</span>
+          <span className="text-muted">{course.lessons.length} lessons · {formatDuration(mins)}</span>
           <span className="font-bold text-cream">₹{course.price}</span>
         </div>
       </div>

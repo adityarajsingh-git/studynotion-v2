@@ -1,8 +1,11 @@
 const BASE = "/api/v2";
 
+export interface EnrolledCourse { _id: string; title: string; price: number; thumbnailColor: string }
+
 export interface ApiUser {
   id: string; name: string; email: string; role: "student" | "instructor";
-  enrolledCourses?: { _id: string; title: string; price: number; thumbnailColor: string }[];
+  /** Always present — signup, login and /me all return the same user shape. */
+  enrolledCourses: EnrolledCourse[];
 }
 export interface ApiCourse {
   _id: string; title: string; description: string; price: number; thumbnailColor: string;

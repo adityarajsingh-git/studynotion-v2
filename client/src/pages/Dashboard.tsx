@@ -4,7 +4,7 @@ import { RootState } from "../store/store";
 
 export default function Dashboard() {
   const user = useSelector((s: RootState) => s.auth.user)!;
-  const enrolled = user.enrolledCourses ?? [];
+  const enrolled = user.enrolledCourses;
 
   return (
     <main className="mx-auto max-w-6xl px-5 py-12">
