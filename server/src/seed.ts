@@ -45,6 +45,9 @@ async function seed() {
       price: c.price,
       thumbnailColor: c.color,
       lessons: Array.from({ length: c.lessons }, (_, i) => ({ title: `Lesson ${i + 1}`, durationMin: 8 + (i % 5) * 3 })),
+      // Demo catalog must actually be browsable — without this the schema's
+      // "draft" default would hide every seeded course from listCourses.
+      status: "published" as const,
     }))
   );
 

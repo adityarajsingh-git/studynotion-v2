@@ -26,7 +26,10 @@ function serializeCourse(course: ICourse) {
 
 export async function listCourses(req: Request, res: Response) {
   const { category, search } = req.query;
-  const filter: Record<string, unknown> = {};
+  // The public catalog only ever shows published courses. Drafts are the
+  // instructor's private work-in-progress — they're reachable solely through
+  // getCourse, which gates per-course access to the owning instructor.
+  const filter: Record<string, unknown> = { status: "published" };
 
   if (category) {
     if (!Types.ObjectId.isValid(String(category)))
@@ -52,6 +55,19 @@ export async function getCourse(req: Request, res: Response) {
     .populate("instructor", "name")
     .populate("category", "name");
   if (!course) return res.status(404).json({ success: false, message: "Course not found" });
+
+  // A draft is visible ONLY to its own instructor (the route runs optionalAuth,
+  // so req.user is set when a valid token came along). Everyone else gets the
+  // same 404 as a nonexistent id — a 403 would confirm to anyone probing ids
+  // that a hidden course exists.
+  if (course.status !== "published") {
+    // `instructor` is populated above, so the ObjectId lives at `_id`.
+    const owner = course.instructor as unknown as { _id?: unknown } | null;
+    const ownerId = owner?._id ? String(owner._id) : null;
+    if (!req.user || !ownerId || req.user.id !== ownerId)
+      return res.status(404).json({ success: false, message: "Course not found" });
+  }
+
   res.json({ success: true, course: serializeCourse(course) });
 }
 
@@ -76,6 +92,11 @@ export async function enroll(req: Request, res: Response) {
 
   const course = await Course.findById(req.params.id);
   if (!course) return res.status(404).json({ success: false, message: "Course not found" });
+
+  // Drafts aren't enrollable. Same 404 as a nonexistent id (never 403) so an
+  // authenticated user can't probe ids to learn a hidden course exists.
+  if (course.status !== "published")
+    return res.status(404).json({ success: false, message: "Course not found" });
 
   const userId = req.user!.id;
   if (course.students.some((s) => String(s) === userId))

@@ -37,6 +37,7 @@ export async function makeCourse(opts: {
   title?: string;
   price?: number;
   lessons?: { title: string; durationMin: number }[];
+  status?: "draft" | "published";
 }) {
   return Course.create({
     title: opts.title ?? "A Test Course",
@@ -45,5 +46,9 @@ export async function makeCourse(opts: {
     category: opts.categoryId,
     price: opts.price ?? 499,
     lessons: opts.lessons ?? [{ title: "Lesson 1", durationMin: 30 }],
+    // Tests seed the *browsable catalog* by default; the schema's own default
+    // is "draft", which would hide every seeded course and break the suite.
+    // Draft-visibility tests opt in with { status: "draft" }.
+    status: opts.status ?? "published",
   });
 }

@@ -133,6 +133,112 @@ describe("GET /api/v2/courses", () => {
   });
 });
 
+// A draft course is the instructor's private work-in-progress. It must be
+// invisible everywhere EXCEPT to its own instructor on getCourse — and every
+// denial must be a 404 indistinguishable from a nonexistent id, never a 403
+// that would confirm to an id-probing caller that something hidden exists.
+describe("draft courses", () => {
+  async function seedDraft() {
+    const { instructor, web } = await seedCatalog();
+    const draft = await makeCourse({
+      instructorId: instructor.user.id,
+      categoryId: String(web._id),
+      title: "Unfinished Draft",
+      status: "draft",
+    });
+    return { instructor, web, draft };
+  }
+
+  it("never appear in the public catalog", async () => {
+    const { instructor } = await seedDraft();
+    // Anonymous browse, filtered browse and search must all miss the draft —
+    // and even the owner's own token doesn't surface it in the catalog.
+    const anon = await request(app).get("/api/v2/courses");
+    expect(anon.status).toBe(200);
+    expect(anon.body.courses.map((c: { title: string }) => c.title))
+      .not.toContain("Unfinished Draft");
+
+    const search = await request(app).get("/api/v2/courses?search=unfinished");
+    expect(search.body.courses).toEqual([]);
+
+    const owned = await request(app).get("/api/v2/courses").set(auth(instructor.token));
+    expect(owned.body.courses.map((c: { title: string }) => c.title))
+      .not.toContain("Unfinished Draft");
+  });
+
+  it("return 404 (not 403) to anonymous callers on getCourse", async () => {
+    const { draft } = await seedDraft();
+    const res = await request(app).get(`/api/v2/courses/${draft._id}`);
+    expect(res.status).toBe(404);
+    expect(res.body.message).toBe("Course not found");
+  });
+
+  it("return 404 (not 403) to other authenticated users, instructors included", async () => {
+    const { draft } = await seedDraft();
+    const student = await makeUser(app);
+    const rival = await makeUser(app, { role: "instructor" });
+
+    for (const actor of [student, rival]) {
+      const res = await request(app)
+        .get(`/api/v2/courses/${draft._id}`)
+        .set(auth(actor.token));
+      expect(res.status).toBe(404);
+      expect(res.body.message).toBe("Course not found");
+    }
+  });
+
+  it("are visible to their own instructor", async () => {
+    const { instructor, draft } = await seedDraft();
+    const res = await request(app)
+      .get(`/api/v2/courses/${draft._id}`)
+      .set(auth(instructor.token));
+
+    expect(res.status).toBe(200);
+    expect(res.body.course.title).toBe("Unfinished Draft");
+    expect(res.body.course.status).toBe("draft");
+  });
+
+  it("cannot be enrolled in — 404, even for an authenticated student", async () => {
+    const { draft } = await seedDraft();
+    const student = await makeUser(app);
+    const res = await request(app)
+      .post(`/api/v2/courses/${draft._id}/enroll`)
+      .set(auth(student.token));
+
+    expect(res.status).toBe(404);
+    expect(res.body.message).toBe("Course not found");
+  });
+
+  it("newly created courses start as drafts", async () => {
+    const instructor = await makeUser(app, { role: "instructor" });
+    const category = await makeCategory();
+    const created = await request(app).post("/api/v2/courses").set(auth(instructor.token)).send({
+      title: "Fresh Course",
+      description: "Starts private",
+      category: String(category._id),
+      price: 100,
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.course.status).toBe("draft");
+
+    // ...and therefore it is NOT in the catalog yet.
+    const list = await request(app).get("/api/v2/courses?search=fresh");
+    expect(list.body.courses).toEqual([]);
+  });
+
+  // optionalAuth: getCourse is a public route. A garbage/expired token must
+  // degrade to anonymous viewing — not bounce the request with a 401.
+  it("a malformed token on the public getCourse route degrades to anonymous, never 401", async () => {
+    const { react } = await seedCatalog();
+    const res = await request(app)
+      .get(`/api/v2/courses/${react._id}`)
+      .set({ Authorization: "Bearer not-a-real-token" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.course.title).toBe("React from Zero");
+  });
+});
+
 describe("GET /api/v2/courses/:id", () => {
   it("returns a single course", async () => {
     const { react } = await seedCatalog();
