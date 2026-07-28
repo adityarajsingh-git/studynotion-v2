@@ -8,6 +8,8 @@ export function notFound(_req: Request, res: Response) {
 interface DbError extends Error {
   code?: number;
   keyValue?: Record<string, unknown>;
+  /** body-parser tags its errors, e.g. "entity.too.large" for oversized bodies. */
+  type?: string;
 }
 
 /**
@@ -16,6 +18,12 @@ interface DbError extends Error {
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function errorHandler(err: DbError, _req: Request, res: Response, _next: NextFunction) {
+  // Raised by express.json({ limit }) before any route runs. Without this
+  // branch it would fall through to the generic 500 (and log noise) — the
+  // client should see the real status in the same JSON shape as every error.
+  if (err.name === "PayloadTooLargeError" || err.type === "entity.too.large")
+    return res.status(413).json({ success: false, message: "Request body too large" });
+
   if (err.name === "ValidationError")
     return res.status(400).json({ success: false, message: err.message });
 
