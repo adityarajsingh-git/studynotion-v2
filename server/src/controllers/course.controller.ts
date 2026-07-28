@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { Types } from "mongoose";
-import { Course } from "../models/Course";
+import { Course, ICourse } from "../models/Course";
 import { User } from "../models/User";
 
 // User-supplied search text is fed into a MongoDB $regex below. Escaping the
@@ -9,6 +9,20 @@ import { User } from "../models/User";
 // otherwise compile to a catastrophic-backtracking pattern that pins the event
 // loop and takes the whole server down.
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * The single course shape the API hands to clients. It deliberately DROPS the
+ * `students` array — the raw list of enrolled-user ObjectIds — and exposes only
+ * its size as `studentCount`. Serializing that array leaked the identity of
+ * every enrolled user to any anonymous caller (and listCourses fanned it out
+ * across the whole catalog in one request). Every course-returning endpoint
+ * funnels through here, so a new handler can't reintroduce the leak by shaping
+ * its own response — the same discipline serializeUser() enforces for auth.
+ */
+function serializeCourse(course: ICourse) {
+  const { students, ...rest } = course.toObject();
+  return { ...rest, studentCount: Array.isArray(students) ? students.length : 0 };
+}
 
 export async function listCourses(req: Request, res: Response) {
   const { category, search } = req.query;
@@ -25,7 +39,7 @@ export async function listCourses(req: Request, res: Response) {
     .populate("instructor", "name")
     .populate("category", "name")
     .sort("-createdAt");
-  res.json({ success: true, courses });
+  res.json({ success: true, courses: courses.map(serializeCourse) });
 }
 
 export async function getCourse(req: Request, res: Response) {
@@ -38,7 +52,7 @@ export async function getCourse(req: Request, res: Response) {
     .populate("instructor", "name")
     .populate("category", "name");
   if (!course) return res.status(404).json({ success: false, message: "Course not found" });
-  res.json({ success: true, course });
+  res.json({ success: true, course: serializeCourse(course) });
 }
 
 export async function createCourse(req: Request, res: Response) {
@@ -53,7 +67,7 @@ export async function createCourse(req: Request, res: Response) {
     lessons: Array.isArray(lessons) ? lessons : [],
     instructor: req.user!.id,
   });
-  res.status(201).json({ success: true, course });
+  res.status(201).json({ success: true, course: serializeCourse(course) });
 }
 
 export async function enroll(req: Request, res: Response) {
