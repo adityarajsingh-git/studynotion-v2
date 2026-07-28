@@ -45,6 +45,22 @@ export async function listCourses(req: Request, res: Response) {
   res.json({ success: true, courses: courses.map(serializeCourse) });
 }
 
+/**
+ * The instructor's own dashboard list. Unlike the public catalog this includes
+ * drafts — they're the caller's own work-in-progress, so there's nothing to
+ * hide — but it NEVER widens beyond `instructor: req.user.id`. The ownership
+ * filter lives in the query itself (not a post-fetch check) so another
+ * instructor's courses can't even be fetched, let alone leak through a
+ * serialization slip.
+ */
+export async function getMyCourses(req: Request, res: Response) {
+  const courses = await Course.find({ instructor: req.user!.id })
+    .populate("instructor", "name")
+    .populate("category", "name")
+    .sort("-createdAt");
+  res.json({ success: true, courses: courses.map(serializeCourse) });
+}
+
 export async function getCourse(req: Request, res: Response) {
   // A non-ObjectId can never match a document, so treat it as "not found"
   // rather than letting Mongoose raise a CastError.

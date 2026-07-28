@@ -27,7 +27,7 @@ React 18 · TypeScript · Vite · Tailwind CSS · Redux Toolkit · React Router 
 - 📚 Catalog — courses with category filter + search, powered by query params
 - 📄 Course pages — lessons, duration, instructor, enrollment
 - 🧑‍🎓 Dashboard — profile + enrolled courses
-- 🌱 Seed script — demo instructor, categories and courses in one command
+- 🌱 Seed script — demo instructor + student, categories and courses in one command
 
 See [ROADMAP.md](./ROADMAP.md) for what's landing next — this repo is in active development.
 
@@ -40,7 +40,7 @@ See [ROADMAP.md](./ROADMAP.md) for what's landing next — this repo is in activ
 cd server
 cp .env.example .env        # fill MONGODB_URL and JWT_SECRET
 npm install
-npm run seed                # demo data (instructor@demo.test / demo1234)
+npm run seed                # demo data — see "Demo credentials" below
 npm run dev                 # http://localhost:4000
 
 # 2. Web app (new terminal)
@@ -48,6 +48,19 @@ cd client
 npm install
 npm run dev                 # http://localhost:5173 (proxies /api to :4000)
 ```
+
+## Demo credentials
+
+`npm run seed` wipes existing data and creates two demo accounts:
+
+| Role | Email | Password |
+|---|---|---|
+| Instructor | `instructor@demo.test` | `demo1234` |
+| Student | `student@demo.test` | `demo1234` |
+
+## Migration note
+
+Upgrading from a pre-`status` deploy: courses created before the draft/published field have no `status` and won't appear in the catalog. Re-run `npm run seed`.
 
 ## Tests
 
