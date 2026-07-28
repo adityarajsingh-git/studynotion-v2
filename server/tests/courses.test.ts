@@ -105,6 +105,32 @@ describe("GET /api/v2/courses", () => {
     expect(dot.body.courses).toHaveLength(1);
     expect(dot.body.courses[0].title).toBe("Node.js Basics");
   });
+
+  // Security regression: a course's `students` array is the list of enrolled-
+  // user ObjectIds. The list endpoint fanned that leak across the WHOLE catalog
+  // — every course's roster in a single anonymous request. No course in the
+  // list may carry it; each must report only a numeric studentCount.
+  it("never leaks any course's students array", async () => {
+    const { react } = await seedCatalog();
+    const student = await makeUser(app);
+    await request(app)
+      .post(`/api/v2/courses/${react._id}/enroll`)
+      .set(auth(student.token))
+      .expect(200);
+
+    const res = await request(app).get("/api/v2/courses");
+    expect(res.status).toBe(200);
+    expect(res.body.courses.length).toBeGreaterThan(0);
+    for (const c of res.body.courses) {
+      expect(c.students).toBeUndefined();
+      expect(typeof c.studentCount).toBe("number");
+    }
+    // The one enrolled course reports its single student as a count.
+    const enrolled = res.body.courses.find(
+      (c: { _id: string }) => c._id === String(react._id)
+    );
+    expect(enrolled.studentCount).toBe(1);
+  });
 });
 
 describe("GET /api/v2/courses/:id", () => {
@@ -115,6 +141,24 @@ describe("GET /api/v2/courses/:id", () => {
     expect(res.status).toBe(200);
     expect(res.body.course.title).toBe("React from Zero");
     expect(res.body.course.lessons).toHaveLength(1);
+  });
+
+  // Security regression: getCourse used to serialize a course's `students`
+  // array straight to any anonymous caller, exposing exactly who was enrolled.
+  // Seed one enrollment so the array would be non-empty if it leaked, then
+  // assert only the count survives. serializeCourse() strips it in one place.
+  it("exposes studentCount and never the raw students array", async () => {
+    const { react } = await seedCatalog();
+    const student = await makeUser(app);
+    await request(app)
+      .post(`/api/v2/courses/${react._id}/enroll`)
+      .set(auth(student.token))
+      .expect(200);
+
+    const res = await request(app).get(`/api/v2/courses/${react._id}`);
+    expect(res.status).toBe(200);
+    expect(res.body.course.studentCount).toBe(1);
+    expect(res.body.course.students).toBeUndefined();
   });
 
   // Regression: this used to be a 500 with a raw Mongoose message.
@@ -185,9 +229,11 @@ describe("POST /api/v2/courses/:id/enroll", () => {
     expect(me.body.user.enrolledCourses).toHaveLength(1);
     expect(me.body.user.enrolledCourses[0].title).toBe("React from Zero");
 
-    // ...and the course carries the student.
+    // ...and the course reflects the enrollment as a COUNT — never the raw
+    // student ObjectIds (the students-leak tests below guard this in detail).
     const course = await request(app).get(`/api/v2/courses/${react._id}`);
-    expect(course.body.course.students).toContain(student.user.id);
+    expect(course.body.course.studentCount).toBe(1);
+    expect(course.body.course.students).toBeUndefined();
   });
 
   it("rejects a second enrollment with 409", async () => {

@@ -41,7 +41,7 @@ export default function CourseDetails() {
         {course.category?.name}
       </span>
       <h1 className="mt-4 text-3xl font-bold text-cream">{course.title}</h1>
-      <p className="mt-1 text-sm">by {course.instructor?.name} · {course.lessons.length} lessons · {formatDuration(mins)} · {course.students.length} enrolled</p>
+      <p className="mt-1 text-sm">by {course.instructor?.name} · {course.lessons.length} lessons · {formatDuration(mins)} · {course.studentCount} enrolled</p>
       <p className="mt-6 max-w-2xl">{course.description}</p>
 
       <div className="mt-8 flex items-center gap-5">

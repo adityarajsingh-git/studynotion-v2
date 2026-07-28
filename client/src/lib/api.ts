@@ -10,7 +10,9 @@ export interface ApiUser {
 export interface ApiCourse {
   _id: string; title: string; description: string; price: number; thumbnailColor: string;
   instructor?: { name: string }; category?: { name: string };
-  lessons: { title: string; durationMin: number }[]; students: string[];
+  lessons: { title: string; durationMin: number }[];
+  /** Enrolled-user count. The server never sends the raw student ObjectIds. */
+  studentCount: number;
 }
 
 export function getToken() { return localStorage.getItem("sn2_token"); }
