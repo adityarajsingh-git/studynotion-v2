@@ -62,6 +62,49 @@ describe("GET /api/v2/courses", () => {
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/invalid category/i);
   });
+
+  // Security: the search term is matched as a literal string, not compiled as a
+  // regex. A catastrophic-backtracking pattern (ReDoS) must return promptly
+  // instead of pinning the event loop.
+  it("treats a ReDoS search pattern as a literal and responds promptly", async () => {
+    await seedCatalog();
+    const started = Date.now();
+    const res = await request(app)
+      .get("/api/v2/courses?search=" + encodeURIComponent("(a+)+$"));
+
+    expect(res.status).toBe(200);
+    expect(res.body.courses).toEqual([]);
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+
+  // Metacharacters must not act as wildcards, and escaping must not be so
+  // aggressive that genuine queries break. Seeding a title with a literal dot
+  // catches both failure modes: a real "Node.js" search must still find it, and
+  // a bare "." must match ONLY that dotted title — not every course (as a regex
+  // wildcard would) and not nothing (as an over-escaped/mangled term would).
+  it("treats regex metacharacters in the search term literally", async () => {
+    const { instructor, web } = await seedCatalog();
+    await makeCourse({
+      instructorId: instructor.user.id,
+      categoryId: String(web._id),
+      title: "Node.js Basics",
+    });
+
+    // Positive case: a realistic query containing a dot still matches.
+    const hit = await request(app)
+      .get("/api/v2/courses?search=" + encodeURIComponent("Node.js"));
+    expect(hit.status).toBe(200);
+    expect(hit.body.courses).toHaveLength(1);
+    expect(hit.body.courses[0].title).toBe("Node.js Basics");
+
+    // "." is a literal dot, not a wildcard: it matches only the dotted title,
+    // not the other two seeded courses.
+    const dot = await request(app)
+      .get("/api/v2/courses?search=" + encodeURIComponent("."));
+    expect(dot.status).toBe(200);
+    expect(dot.body.courses).toHaveLength(1);
+    expect(dot.body.courses[0].title).toBe("Node.js Basics");
+  });
 });
 
 describe("GET /api/v2/courses/:id", () => {
