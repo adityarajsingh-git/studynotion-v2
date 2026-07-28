@@ -239,6 +239,78 @@ describe("draft courses", () => {
   });
 });
 
+describe("GET /api/v2/courses/mine", () => {
+  it("returns the caller's own courses — drafts AND published", async () => {
+    const { instructor, web } = await seedCatalog();
+    await makeCourse({
+      instructorId: instructor.user.id,
+      categoryId: String(web._id),
+      title: "My Secret Draft",
+      status: "draft",
+    });
+
+    const res = await request(app).get("/api/v2/courses/mine").set(auth(instructor.token));
+
+    expect(res.status).toBe(200);
+    // Unlike the public catalog, the dashboard shows work-in-progress too:
+    // 2 published from seedCatalog + 1 draft.
+    expect(res.body.courses).toHaveLength(3);
+    expect(res.body.courses.map((c: { title: string }) => c.title))
+      .toContain("My Secret Draft");
+  });
+
+  it("never includes another instructor's courses", async () => {
+    const { web } = await seedCatalog(); // seeds 2 courses for a different instructor
+    const other = await makeUser(app, { role: "instructor" });
+    await makeCourse({
+      instructorId: other.user.id,
+      categoryId: String(web._id),
+      title: "Only Mine",
+    });
+
+    const res = await request(app).get("/api/v2/courses/mine").set(auth(other.token));
+
+    expect(res.status).toBe(200);
+    expect(res.body.courses).toHaveLength(1);
+    expect(res.body.courses[0].title).toBe("Only Mine");
+  });
+
+  it("requires authentication — 401 for anonymous callers", async () => {
+    const res = await request(app).get("/api/v2/courses/mine");
+    expect(res.status).toBe(401);
+  });
+
+  it("is instructor-only — students get 403", async () => {
+    const student = await makeUser(app);
+    const res = await request(app).get("/api/v2/courses/mine").set(auth(student.token));
+    expect(res.status).toBe(403);
+  });
+
+  // Route-ordering regression guard: "/mine" is registered before "/:id". If
+  // that order ever flips, Express would route this request into getCourse,
+  // treat "mine" as a course id and 404 — the assertions above would fail, but
+  // this pins the failure mode down explicitly for whoever breaks it.
+  it("is not swallowed by the /:id param route", async () => {
+    const instructor = await makeUser(app, { role: "instructor" });
+    const res = await request(app).get("/api/v2/courses/mine").set(auth(instructor.token));
+    expect(res.status).toBe(200);
+    expect(res.body.courses).toEqual([]);
+  });
+
+  it("serializes through serializeCourse — studentCount, never the students array", async () => {
+    const { instructor, react } = await seedCatalog();
+    const student = await makeUser(app);
+    await request(app).post(`/api/v2/courses/${react._id}/enroll`).set(auth(student.token));
+
+    const res = await request(app).get("/api/v2/courses/mine").set(auth(instructor.token));
+
+    expect(res.status).toBe(200);
+    const enrolled = res.body.courses.find((c: { title: string }) => c.title === "React from Zero");
+    expect(enrolled.studentCount).toBe(1);
+    expect(enrolled.students).toBeUndefined();
+  });
+});
+
 describe("GET /api/v2/courses/:id", () => {
   it("returns a single course", async () => {
     const { react } = await seedCatalog();

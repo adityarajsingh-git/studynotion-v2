@@ -35,6 +35,15 @@ async function seed() {
     password: await bcrypt.hash("demo1234", 10),
     role: "instructor",
   });
+  // A ready-made student account: the seed wipes ALL users (deleteMany above),
+  // so without this every re-seed forces a manual signup before the enroll
+  // flow can even be exercised.
+  await User.create({
+    name: "Demo Student",
+    email: "student@demo.test",
+    password: await bcrypt.hash("demo1234", 10),
+    role: "student",
+  });
 
   await Course.insertMany(
     COURSES.map((c) => ({
@@ -51,7 +60,7 @@ async function seed() {
     }))
   );
 
-  console.log(`✅ seeded: ${cats.length} categories, ${COURSES.length} courses, 1 instructor (instructor@demo.test / demo1234)`);
+  console.log(`✅ seeded: ${cats.length} categories, ${COURSES.length} courses, 2 users — instructor@demo.test / demo1234 (instructor), student@demo.test / demo1234 (student)`);
   await mongoose.disconnect();
 }
 
