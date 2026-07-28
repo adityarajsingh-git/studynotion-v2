@@ -3,6 +3,13 @@ import { Types } from "mongoose";
 import { Course } from "../models/Course";
 import { User } from "../models/User";
 
+// User-supplied search text is fed into a MongoDB $regex below. Escaping the
+// regex metacharacters turns the input into a literal substring match — this
+// keeps results intuitive AND prevents ReDoS: a term like "(a+)+$" would
+// otherwise compile to a catastrophic-backtracking pattern that pins the event
+// loop and takes the whole server down.
+const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 export async function listCourses(req: Request, res: Response) {
   const { category, search } = req.query;
   const filter: Record<string, unknown> = {};
@@ -12,7 +19,7 @@ export async function listCourses(req: Request, res: Response) {
       return res.status(400).json({ success: false, message: "Invalid category filter" });
     filter.category = category;
   }
-  if (search) filter.title = { $regex: String(search), $options: "i" };
+  if (search) filter.title = { $regex: escapeRegex(String(search)), $options: "i" };
 
   const courses = await Course.find(filter)
     .populate("instructor", "name")
