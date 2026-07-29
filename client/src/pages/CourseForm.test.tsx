@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
 import { api } from "../lib/api";
@@ -217,5 +217,170 @@ describe("CourseForm — edit mode", () => {
 
     expect(await screen.findByText(/enrolled students/)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Edit course" })).toBeInTheDocument();
+  });
+});
+
+describe("CourseForm — lesson editor", () => {
+  const LESSONS = [
+    { _id: "l1", title: "Intro", durationMin: 10 },
+    { _id: "l2", title: "Setup", durationMin: 20 },
+    { _id: "l3", title: "Hooks", durationMin: 30 },
+  ];
+
+  /** Standard edit-mode boot: categories plus a draft course carrying LESSONS. */
+  function mockLoad(lessons = LESSONS) {
+    vi.spyOn(api, "categories").mockResolvedValue({ categories: CATEGORIES });
+    vi.spyOn(api, "course").mockResolvedValue({ course: aCourse({ status: "draft", lessons }) });
+  }
+
+  /** Renders the edit route and waits until the course has loaded. */
+  async function renderEditor() {
+    renderForm("/instructor/courses/c1/edit");
+    await screen.findByDisplayValue("React from Zero");
+  }
+
+  // The list is an <ol> because order is part of the data — each row shows
+  // title + duration in server order, and the header sums the runtime.
+  it("renders the lessons in order with durations", async () => {
+    mockLoad();
+    await renderEditor();
+
+    const rows = screen.getAllByRole("listitem");
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toHaveTextContent("Intro");
+    expect(rows[0]).toHaveTextContent("10m");
+    expect(rows[2]).toHaveTextContent("Hooks");
+    expect(screen.getByText(/3 lessons · 1h/)).toBeInTheDocument();
+  });
+
+  // Add appends the server's created lesson (with its real _id) — never a
+  // locally-invented one.
+  it("adds a lesson through api.addLesson", async () => {
+    mockLoad();
+    const spy = vi.spyOn(api, "addLesson")
+      .mockResolvedValue({ lesson: { _id: "l4", title: "Deploy", durationMin: 15 } });
+    await renderEditor();
+
+    await userEvent.type(screen.getByLabelText("Lesson title"), "Deploy");
+    await userEvent.type(screen.getByLabelText("Duration (min)"), "15");
+    await userEvent.click(screen.getByRole("button", { name: "Add lesson" }));
+
+    expect(spy).toHaveBeenCalledWith("c1", { title: "Deploy", durationMin: 15 });
+    expect(await screen.findByText("Deploy")).toBeInTheDocument();
+  });
+
+  // Client mirrors the server's "title required" rule — no request fires.
+  it("blocks adding a lesson with an empty title", async () => {
+    mockLoad();
+    const spy = vi.spyOn(api, "addLesson");
+    await renderEditor();
+
+    await userEvent.click(screen.getByRole("button", { name: "Add lesson" }));
+
+    expect(await screen.findByText(/title is required/i)).toBeInTheDocument();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  // durationMin must be a non-negative integer (empty is fine — it becomes 0).
+  it("rejects a negative duration without calling the API", async () => {
+    mockLoad();
+    const spy = vi.spyOn(api, "addLesson");
+    await renderEditor();
+
+    await userEvent.type(screen.getByLabelText("Lesson title"), "Deploy");
+    await userEvent.type(screen.getByLabelText("Duration (min)"), "-5");
+    await userEvent.click(screen.getByRole("button", { name: "Add lesson" }));
+
+    expect(await screen.findByText(/non-negative/i)).toBeInTheDocument();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  // Edit swaps the row into inputs and PATCHes only that lesson; the row
+  // re-renders from the server's response.
+  it("edits a lesson through api.updateLesson", async () => {
+    mockLoad();
+    const spy = vi.spyOn(api, "updateLesson")
+      .mockResolvedValue({ lesson: { _id: "l1", title: "Intro 2", durationMin: 10 } });
+    await renderEditor();
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit Intro" }));
+    const row = screen.getAllByRole("listitem")[0];
+    await userEvent.type(within(row).getByLabelText("Lesson title"), " 2");
+    await userEvent.click(within(row).getByRole("button", { name: "Save" }));
+
+    expect(spy).toHaveBeenCalledWith("c1", "l1", { title: "Intro 2", durationMin: 10 });
+    expect(await screen.findByText("Intro 2")).toBeInTheDocument();
+  });
+
+  // Delete is two-step like the course's own danger zone; the list then
+  // mirrors the server's remaining array.
+  it("deletes a lesson after the inline confirm", async () => {
+    mockLoad();
+    const spy = vi.spyOn(api, "deleteLesson")
+      .mockResolvedValue({ lessons: [LESSONS[0], LESSONS[2]] });
+    await renderEditor();
+
+    await userEvent.click(screen.getByRole("button", { name: "Delete Setup" }));
+    expect(spy).not.toHaveBeenCalled(); // first click only opens the confirm
+    await userEvent.click(screen.getByRole("button", { name: "Confirm delete Setup" }));
+
+    expect(spy).toHaveBeenCalledWith("c1", "l2");
+    await waitFor(() => expect(screen.queryByText("Setup")).not.toBeInTheDocument());
+  });
+
+  // ↑/↓ send the whole reordered id array, and the UI renders whatever order
+  // the server confirms back.
+  it("reorders lessons with the arrow buttons", async () => {
+    mockLoad();
+    const spy = vi.spyOn(api, "reorderLessons")
+      .mockResolvedValueOnce({ lessons: [LESSONS[1], LESSONS[0], LESSONS[2]] })
+      .mockResolvedValueOnce({ lessons: LESSONS });
+    await renderEditor();
+
+    await userEvent.click(screen.getByRole("button", { name: "Move Setup up" }));
+    expect(spy).toHaveBeenNthCalledWith(1, "c1", ["l2", "l1", "l3"]);
+    await waitFor(() =>
+      expect(screen.getAllByRole("listitem")[0]).toHaveTextContent("Setup")
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Move Setup down" }));
+    expect(spy).toHaveBeenNthCalledWith(2, "c1", ["l1", "l2", "l3"]);
+    await waitFor(() =>
+      expect(screen.getAllByRole("listitem")[0]).toHaveTextContent("Intro")
+    );
+  });
+
+  // The ends can't move past themselves.
+  it("disables ↑ on the first lesson and ↓ on the last", async () => {
+    mockLoad();
+    await renderEditor();
+
+    expect(screen.getByRole("button", { name: "Move Intro up" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Move Hooks down" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Move Setup up" })).toBeEnabled();
+  });
+
+  // Server rejections (403/404/validation) surface verbatim, same contract as
+  // the rest of the form.
+  it("shows the server's error message when a mutation fails", async () => {
+    mockLoad();
+    vi.spyOn(api, "addLesson").mockRejectedValue(new Error("Lesson title too long"));
+    await renderEditor();
+
+    await userEvent.type(screen.getByLabelText("Lesson title"), "Deploy");
+    await userEvent.click(screen.getByRole("button", { name: "Add lesson" }));
+
+    expect(await screen.findByText("Lesson title too long")).toBeInTheDocument();
+  });
+
+  // Create mode has no course id — there's nothing to attach a lesson to, so
+  // the whole section stays hidden until the course exists.
+  it("does not render the lesson editor in create mode", async () => {
+    vi.spyOn(api, "categories").mockResolvedValue({ categories: CATEGORIES });
+
+    renderForm("/instructor/courses/new");
+
+    expect(await screen.findByRole("heading", { name: "New course" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Lessons" })).not.toBeInTheDocument();
   });
 });
