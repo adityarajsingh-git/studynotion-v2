@@ -11,8 +11,8 @@ const course = aCourse({
   _id: "c1",
   title: "React from Zero",
   lessons: [
-    { title: "Intro", durationMin: 30 },
-    { title: "Hooks", durationMin: 45 },
+    { _id: "l1", title: "Intro", durationMin: 30 },
+    { _id: "l2", title: "Hooks", durationMin: 45 },
   ],
 });
 

@@ -1,6 +1,9 @@
 import { Schema, model, Document, Types } from "mongoose";
 
 export interface ILesson {
+  // Mongoose gives every subdocument an _id automatically — declared here so
+  // TypeScript can see it (the lesson endpoints target lessons by this id).
+  _id: Types.ObjectId;
   title: string;
   durationMin: number;
 }
@@ -29,7 +32,10 @@ const courseSchema = new Schema<ICourse>(
     category: { type: Schema.Types.ObjectId, ref: "Category", required: true, index: true },
     price: { type: Number, required: true, min: 0 },
     thumbnailColor: { type: String, default: "#d9a54f" },
-    lessons: [{ title: { type: String, required: true }, durationMin: { type: Number, default: 0 } }],
+    lessons: [{
+      title: { type: String, required: true, trim: true, maxlength: 200 },
+      durationMin: { type: Number, default: 0, min: 0 },
+    }],
     students: [{ type: Schema.Types.ObjectId, ref: "User" }],
     // New courses start as private work-in-progress. Only "published" courses
     // appear in the catalog or accept enrollments; a draft is visible solely

@@ -19,14 +19,14 @@ describe("CourseCard", () => {
 
   // Regression: a 25-minute course used to render "0h".
   it("shows short courses in minutes", () => {
-    renderWithProviders(<CourseCard course={aCourse({ lessons: [{ title: "L1", durationMin: 25 }] })} />);
+    renderWithProviders(<CourseCard course={aCourse({ lessons: [{ _id: "l1", title: "L1", durationMin: 25 }] })} />);
 
     expect(screen.getByText(/1 lessons · 25m/)).toBeInTheDocument();
     expect(screen.queryByText(/0h/)).not.toBeInTheDocument();
   });
 
   it("shows longer courses in hours and minutes", () => {
-    const lessons = Array.from({ length: 4 }, (_, i) => ({ title: `L${i}`, durationMin: 30 }));
+    const lessons = Array.from({ length: 4 }, (_, i) => ({ _id: `l${i}`, title: `L${i}`, durationMin: 30 }));
     renderWithProviders(<CourseCard course={aCourse({ lessons })} />);
 
     expect(screen.getByText(/4 lessons · 2h/)).toBeInTheDocument();

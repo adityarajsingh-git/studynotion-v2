@@ -10,7 +10,8 @@ export interface ApiUser {
 export interface ApiCourse {
   _id: string; title: string; description: string; price: number; thumbnailColor: string;
   instructor?: { name: string }; category?: { name: string };
-  lessons: { title: string; durationMin: number }[];
+  /** _id lets the client target a lesson for edit/delete/reorder. */
+  lessons: { _id: string; title: string; durationMin: number }[];
   /** Enrolled-user count. The server never sends the raw student ObjectIds. */
   studentCount: number;
 }

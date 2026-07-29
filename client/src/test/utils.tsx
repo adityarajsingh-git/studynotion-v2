@@ -51,7 +51,7 @@ export const aCourse = (overrides: Partial<ApiCourse> = {}): ApiCourse => ({
   thumbnailColor: "#d9a54f",
   instructor: { name: "Demo Instructor" },
   category: { name: "Web Development" },
-  lessons: [{ title: "Lesson 1", durationMin: 30 }],
+  lessons: [{ _id: "l1", title: "Lesson 1", durationMin: 30 }],
   studentCount: 0,
   ...overrides,
 });
