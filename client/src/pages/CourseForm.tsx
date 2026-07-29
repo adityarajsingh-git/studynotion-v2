@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api } from "../lib/api";
+import { api, ApiLesson } from "../lib/api";
+import LessonEditor from "../components/LessonEditor";
 
 /** Preset thumbnail swatches — same palette family as the seeded courses. */
 export const SWATCHES = ["#d9a54f", "#69b578", "#5d8aa8", "#c76b6b", "#9b7cc3"];
@@ -29,6 +30,8 @@ export default function CourseForm() {
   const [loaded, setLoaded] = useState<FormValues>(emptyForm);
   const [categories, setCategories] = useState<{ _id: string; name: string }[]>([]);
   const [status, setStatus] = useState<"draft" | "published">("draft");
+  // Lessons load once with the course; LessonEditor owns them from there on.
+  const [initialLessons, setInitialLessons] = useState<ApiLesson[]>([]);
   const [loading, setLoading] = useState(editing);
   const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -71,6 +74,7 @@ export default function CourseForm() {
         setForm(values);
         setLoaded(values);
         setStatus(course.status);
+        setInitialLessons(course.lessons);
       })
       .catch((e) => {
         if (!on) return;
@@ -233,6 +237,11 @@ export default function CourseForm() {
           {saving ? "Saving…" : editing ? "Save changes" : "Create course"}
         </button>
       </form>
+
+      {/* Create mode has no course id yet — nothing to attach lessons to.
+          key={id} forces a remount when navigating between edit pages, so a
+          stale lesson list can never survive a course switch. */}
+      {editing && <LessonEditor key={id} courseId={id!} initialLessons={initialLessons} />}
 
       {editing && (
         <section className="mt-10 space-y-3 rounded-2xl border border-edge bg-panel p-5">
