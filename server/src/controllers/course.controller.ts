@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { Types } from "mongoose";
+import { Category } from "../models/Category";
 import { Course, ICourse } from "../models/Course";
 import { User } from "../models/User";
 
@@ -87,10 +88,24 @@ export async function getCourse(req: Request, res: Response) {
   res.json({ success: true, course: serializeCourse(course) });
 }
 
+/**
+ * `category` is an ObjectId ref, and Mongoose will happily store a dangling
+ * one — populate() then yields null and the UI shows an empty category badge.
+ * listCourses already validates its filter this way; both write paths must do
+ * the same before a course can be bound to a category that doesn't exist.
+ * Malformed strings and valid-but-nonexistent ids are the same client error.
+ */
+async function categoryMissing(id: unknown): Promise<boolean> {
+  return !Types.ObjectId.isValid(String(id)) || !(await Category.exists({ _id: id }));
+}
+
 export async function createCourse(req: Request, res: Response) {
   const { title, description, category, price, thumbnailColor, lessons } = req.body ?? {};
   if (!title || !description || !category || price === undefined)
     return res.status(400).json({ success: false, message: "title, description, category and price are required" });
+
+  if (await categoryMissing(category))
+    return res.status(400).json({ success: false, message: "Category not found" });
 
   const course = await Course.create({
     title, description, category,
@@ -100,6 +115,91 @@ export async function createCourse(req: Request, res: Response) {
     instructor: req.user!.id,
   });
   res.status(201).json({ success: true, course: serializeCourse(course) });
+}
+
+/**
+ * The fields a PATCH is allowed to touch — a whitelist, so everything else in
+ * req.body is silently ignored (REST convention: unknown members are not an
+ * error). Piping req.body straight into an update would be mass assignment:
+ * PATCH { instructor: "<attacker-id>" } would steal the course outright, and
+ * PATCH { students: [...] } would forge enrollments without touching the
+ * enroll endpoint. `lessons` stays blocked until the course-builder roadmap
+ * item lands; `_id`/`createdAt`/`updatedAt` are Mongoose's to manage.
+ *
+ * `status` IS updatable on purpose — flipping it between "draft" and
+ * "published" is the publish/unpublish flow.
+ */
+const UPDATABLE_FIELDS = ["title", "description", "category", "price", "thumbnailColor", "status"] as const;
+
+/**
+ * requireRole("instructor") only proves the caller is SOME instructor —
+ * without this second check any instructor could edit or delete a rival's
+ * course (broken access control). The denial status depends on visibility:
+ * a draft is private, so a non-owner gets the same 404 as a nonexistent id
+ * (a 403 would confirm a hidden course exists — same discipline as
+ * getCourse/enroll); a published course is already public in the catalog,
+ * so a 404 would be a lie — 403 is the honest answer.
+ */
+function ownershipDenial(course: ICourse, userId: string): 403 | 404 | null {
+  if (String(course.instructor) === userId) return null;
+  return course.status === "published" ? 403 : 404;
+}
+
+export async function updateCourse(req: Request, res: Response) {
+  if (!Types.ObjectId.isValid(req.params.id))
+    return res.status(404).json({ success: false, message: "Course not found" });
+
+  const course = await Course.findById(req.params.id);
+  if (!course) return res.status(404).json({ success: false, message: "Course not found" });
+
+  const denial = ownershipDenial(course, req.user!.id);
+  if (denial === 404) return res.status(404).json({ success: false, message: "Course not found" });
+  if (denial === 403) return res.status(403).json({ success: false, message: "You do not own this course" });
+
+  const body = req.body ?? {};
+
+  // status doubles as the publish switch, so reject anything outside the enum
+  // up front with a clear message rather than a raw Mongoose enum error.
+  if (body.status !== undefined && body.status !== "draft" && body.status !== "published")
+    return res.status(400).json({ success: false, message: 'status must be "draft" or "published"' });
+
+  // Same dangling-ref guard as createCourse — verified BEFORE the whitelist
+  // loop writes anything, so a rejected PATCH leaves the course untouched.
+  if (body.category !== undefined && (await categoryMissing(body.category)))
+    return res.status(400).json({ success: false, message: "Category not found" });
+
+  for (const field of UPDATABLE_FIELDS)
+    if (body[field] !== undefined) course.set(field, body[field]);
+
+  // save() runs the schema validators, so a bad category id / negative price /
+  // overlong title still surfaces as a ValidationError → 400 via errorHandler.
+  await course.save();
+  res.json({ success: true, course: serializeCourse(course) });
+}
+
+export async function deleteCourse(req: Request, res: Response) {
+  if (!Types.ObjectId.isValid(req.params.id))
+    return res.status(404).json({ success: false, message: "Course not found" });
+
+  const course = await Course.findById(req.params.id);
+  if (!course) return res.status(404).json({ success: false, message: "Course not found" });
+
+  const denial = ownershipDenial(course, req.user!.id);
+  if (denial === 404) return res.status(404).json({ success: false, message: "Course not found" });
+  if (denial === 403) return res.status(403).json({ success: false, message: "You do not own this course" });
+
+  // Referential integrity: every enrolled user's User.enrolledCourses points
+  // at this id. Deleting would orphan those references and make the dashboard
+  // populate() come back null. Unpublishing hides the course without breaking
+  // anyone's library, so steer the instructor there instead.
+  if (course.students.length > 0)
+    return res.status(409).json({
+      success: false,
+      message: "Cannot delete a course with enrolled students — unpublish it instead",
+    });
+
+  await course.deleteOne();
+  res.json({ success: true, message: "Course deleted" });
 }
 
 export async function enroll(req: Request, res: Response) {
