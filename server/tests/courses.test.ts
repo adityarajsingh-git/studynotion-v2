@@ -390,6 +390,29 @@ describe("POST /api/v2/courses", () => {
       .send({ title: "Only a title" });
     expect(res.status).toBe(400);
   });
+
+  // `category` is an ObjectId ref that must point at a REAL Category — a
+  // valid-but-nonexistent id would store a dangling ref that populate() turns
+  // into null (empty category badge in the UI).
+  it("returns 400 for a valid-but-nonexistent category", async () => {
+    const instructor = await makeUser(app, { role: "instructor" });
+    const res = await request(app).post("/api/v2/courses").set(auth(instructor.token))
+      .send({ title: "X", description: "Y", category: String(new Types.ObjectId()), price: 10 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe("Category not found");
+  });
+
+  // A malformed id can't reference anything either — same 400, and no
+  // CastError leaking out as a 500.
+  it("returns 400 for a malformed category id", async () => {
+    const instructor = await makeUser(app, { role: "instructor" });
+    const res = await request(app).post("/api/v2/courses").set(auth(instructor.token))
+      .send({ title: "X", description: "Y", category: "abc", price: 10 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe("Category not found");
+  });
 });
 
 describe("POST /api/v2/courses/:id/enroll", () => {
@@ -434,6 +457,236 @@ describe("POST /api/v2/courses/:id/enroll", () => {
   it("returns 404 for a malformed course id", async () => {
     const student = await makeUser(app);
     const res = await request(app).post("/api/v2/courses/abc/enroll").set(auth(student.token));
+    expect(res.status).toBe(404);
+  });
+});
+
+describe("PATCH /api/v2/courses/:id", () => {
+  async function seedOwned(status: "draft" | "published" = "published") {
+    const owner = await makeUser(app, { role: "instructor" });
+    const category = await makeCategory("Web Development");
+    const course = await makeCourse({
+      instructorId: owner.user.id, categoryId: String(category._id), title: "React from Zero", status,
+    });
+    return { owner, category, course };
+  }
+
+  // The happy path: the owning instructor edits whitelisted fields and the
+  // changes both come back in the response and persist.
+  it("lets the owner update their own course", async () => {
+    const { owner, course } = await seedOwned();
+    const res = await request(app)
+      .patch(`/api/v2/courses/${course._id}`)
+      .set(auth(owner.token))
+      .send({ title: "React from Zero, 2nd Edition", price: 599 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.course.title).toBe("React from Zero, 2nd Edition");
+    expect(res.body.course.price).toBe(599);
+
+    const fetched = await request(app).get(`/api/v2/courses/${course._id}`);
+    expect(fetched.body.course.title).toBe("React from Zero, 2nd Edition");
+  });
+
+  // Broken-access-control guard: requireRole("instructor") passes for ANY
+  // instructor, so the ownership check must reject a rival. The course is
+  // published (publicly listed), so hiding it with a 404 would be a lie — 403.
+  it("returns 403 when another instructor targets a published course", async () => {
+    const { course } = await seedOwned("published");
+    const rival = await makeUser(app, { role: "instructor" });
+    const res = await request(app)
+      .patch(`/api/v2/courses/${course._id}`)
+      .set(auth(rival.token))
+      .send({ title: "Hijacked" });
+
+    expect(res.status).toBe(403);
+    // ...and nothing was written.
+    const fetched = await request(app).get(`/api/v2/courses/${course._id}`);
+    expect(fetched.body.course.title).toBe("React from Zero");
+  });
+
+  // A draft is private: a 403 would confirm to a rival that the hidden course
+  // exists, so a non-owner gets the same 404 as a nonexistent id.
+  it("returns 404 when another instructor targets a draft course", async () => {
+    const { course } = await seedOwned("draft");
+    const rival = await makeUser(app, { role: "instructor" });
+    const res = await request(app)
+      .patch(`/api/v2/courses/${course._id}`)
+      .set(auth(rival.token))
+      .send({ title: "Sniffed" });
+    expect(res.status).toBe(404);
+  });
+
+  // Students never clear the role gate, regardless of ownership questions.
+  it("returns 403 for a student", async () => {
+    const { course } = await seedOwned();
+    const student = await makeUser(app);
+    const res = await request(app)
+      .patch(`/api/v2/courses/${course._id}`)
+      .set(auth(student.token))
+      .send({ title: "Nope" });
+    expect(res.status).toBe(403);
+  });
+
+  // No token at all fails before any role or ownership logic runs.
+  it("returns 401 for anonymous requests", async () => {
+    const { course } = await seedOwned();
+    const res = await request(app).patch(`/api/v2/courses/${course._id}`).send({ title: "Nope" });
+    expect(res.status).toBe(401);
+  });
+
+  // Mass-assignment guard: `instructor` is not on the whitelist, so even the
+  // owner cannot reassign the course — PATCH { instructor: <id> } must never
+  // be a way to transfer (or steal) ownership.
+  it("ignores an instructor field in the payload — ownership cannot change", async () => {
+    const { owner, course } = await seedOwned();
+    const rival = await makeUser(app, { role: "instructor" });
+    const res = await request(app)
+      .patch(`/api/v2/courses/${course._id}`)
+      .set(auth(owner.token))
+      .send({ instructor: rival.user.id, title: "Still mine" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.course.title).toBe("Still mine");
+    expect(String(res.body.course.instructor)).toBe(owner.user.id);
+  });
+
+  // Mass-assignment guard: `students` is not on the whitelist either, so
+  // enrollments cannot be forged around the enroll endpoint. Unknown fields
+  // are silently ignored per REST convention — not a 400.
+  it("ignores a students field in the payload", async () => {
+    const { owner, course } = await seedOwned();
+    const res = await request(app)
+      .patch(`/api/v2/courses/${course._id}`)
+      .set(auth(owner.token))
+      .send({ students: [String(new Types.ObjectId())] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.course.studentCount).toBe(0);
+  });
+
+  // `status` IS whitelisted on purpose: flipping draft → "published" is the
+  // publish flow, and the course must surface in the public catalog after it.
+  it("publishes a draft via PATCH { status: 'published' }", async () => {
+    const { owner, course } = await seedOwned("draft");
+
+    const before = await request(app).get("/api/v2/courses");
+    expect(before.body.courses).toHaveLength(0);
+
+    const res = await request(app)
+      .patch(`/api/v2/courses/${course._id}`)
+      .set(auth(owner.token))
+      .send({ status: "published" });
+    expect(res.status).toBe(200);
+
+    const after = await request(app).get("/api/v2/courses");
+    expect(after.body.courses).toHaveLength(1);
+    expect(after.body.courses[0].title).toBe("React from Zero");
+  });
+
+  // status is an enum of exactly two states — anything else is a client error.
+  it("returns 400 for an invalid status value", async () => {
+    const { owner, course } = await seedOwned();
+    const res = await request(app)
+      .patch(`/api/v2/courses/${course._id}`)
+      .set(auth(owner.token))
+      .send({ status: "archived" });
+    expect(res.status).toBe(400);
+  });
+
+  // Dangling-ref guard on update: the category is verified BEFORE the
+  // whitelist loop writes anything, so a rejected PATCH leaves the course
+  // completely untouched — old category AND the other fields in the payload.
+  it("returns 400 for a valid-but-nonexistent category and keeps the old one", async () => {
+    const { owner, category, course } = await seedOwned();
+    const res = await request(app)
+      .patch(`/api/v2/courses/${course._id}`)
+      .set(auth(owner.token))
+      .send({ category: String(new Types.ObjectId()), title: "Should not stick" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe("Category not found");
+
+    const fetched = await request(app).get(`/api/v2/courses/${course._id}`);
+    expect(String(fetched.body.course.category._id)).toBe(String(category._id));
+    expect(fetched.body.course.title).toBe("React from Zero");
+  });
+
+  // Malformed category strings get the same 400 as nonexistent ones.
+  it("returns 400 for a malformed category id", async () => {
+    const { owner, course } = await seedOwned();
+    const res = await request(app)
+      .patch(`/api/v2/courses/${course._id}`)
+      .set(auth(owner.token))
+      .send({ category: "abc" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe("Category not found");
+  });
+
+  // The guard must not break legitimate re-categorisation: an existing
+  // category is still accepted and actually applied.
+  it("still updates to another existing category with 200", async () => {
+    const { owner, course } = await seedOwned();
+    const other = await makeCategory("Data & Databases");
+    const res = await request(app)
+      .patch(`/api/v2/courses/${course._id}`)
+      .set(auth(owner.token))
+      .send({ category: String(other._id) });
+
+    expect(res.status).toBe(200);
+
+    const fetched = await request(app).get(`/api/v2/courses/${course._id}`);
+    expect(fetched.body.course.category.name).toBe("Data & Databases");
+  });
+
+  // A malformed ObjectId can't exist, so it reads as "not found" rather than
+  // leaking a CastError as a 500.
+  it("returns 404 for a malformed course id", async () => {
+    const instructor = await makeUser(app, { role: "instructor" });
+    const res = await request(app)
+      .patch("/api/v2/courses/abc")
+      .set(auth(instructor.token))
+      .send({ title: "x" });
+    expect(res.status).toBe(404);
+  });
+});
+
+describe("DELETE /api/v2/courses/:id", () => {
+  // The owner can delete a course nobody is enrolled in, and it's really gone.
+  it("lets the owner delete their own course", async () => {
+    const owner = await makeUser(app, { role: "instructor" });
+    const category = await makeCategory("Web Development");
+    const course = await makeCourse({ instructorId: owner.user.id, categoryId: String(category._id) });
+
+    const res = await request(app).delete(`/api/v2/courses/${course._id}`).set(auth(owner.token));
+    expect(res.status).toBe(200);
+
+    const fetched = await request(app).get(`/api/v2/courses/${course._id}`);
+    expect(fetched.status).toBe(404);
+  });
+
+  // Referential-integrity guard: enrolled users' enrolledCourses point at this
+  // id, so deletion would orphan them and null out dashboard populate(). The
+  // instructor is steered toward unpublishing instead.
+  it("returns 409 when students are enrolled", async () => {
+    const { instructor, react } = await seedCatalog();
+    const student = await makeUser(app);
+    await request(app).post(`/api/v2/courses/${react._id}/enroll`).set(auth(student.token)).expect(200);
+
+    const res = await request(app).delete(`/api/v2/courses/${react._id}`).set(auth(instructor.token));
+    expect(res.status).toBe(409);
+    expect(res.body.message).toBe("Cannot delete a course with enrolled students — unpublish it instead");
+
+    // The course must still be intact for the enrolled student.
+    const fetched = await request(app).get(`/api/v2/courses/${react._id}`);
+    expect(fetched.status).toBe(200);
+  });
+
+  // Same malformed-id discipline as PATCH: impossible id → 404, not a 500.
+  it("returns 404 for a malformed course id", async () => {
+    const instructor = await makeUser(app, { role: "instructor" });
+    const res = await request(app).delete("/api/v2/courses/abc").set(auth(instructor.token));
     expect(res.status).toBe(404);
   });
 });
