@@ -12,7 +12,9 @@ export interface ApiLesson { _id: string; title: string; durationMin: number }
 
 export interface ApiCourse {
   _id: string; title: string; description: string; price: number; thumbnailColor: string;
-  instructor?: { name: string }; category?: { name: string };
+  instructor?: { name: string };
+  /** populate() always includes _id — the edit form needs it to preselect the dropdown. */
+  category?: { _id: string; name: string };
   lessons: ApiLesson[];
   /** Enrolled-user count. The server never sends the raw student ObjectIds. */
   studentCount: number;

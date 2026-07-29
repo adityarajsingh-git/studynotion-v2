@@ -12,6 +12,7 @@ import Signup from "./pages/Signup";
 import Catalog from "./pages/Catalog";
 import CourseDetails from "./pages/CourseDetails";
 import Dashboard from "./pages/Dashboard";
+import CourseForm from "./pages/CourseForm";
 import NotFound from "./pages/NotFound";
 
 export default function App() {
@@ -29,6 +30,8 @@ export default function App() {
           <Route path="/courses" element={<Catalog />} />
           <Route path="/courses/:id" element={<CourseDetails />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/instructor/courses/new" element={<ProtectedRoute role="instructor"><CourseForm /></ProtectedRoute>} />
+          <Route path="/instructor/courses/:id/edit" element={<ProtectedRoute role="instructor"><CourseForm /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </div>

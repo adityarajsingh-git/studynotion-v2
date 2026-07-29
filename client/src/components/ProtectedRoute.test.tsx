@@ -38,3 +38,44 @@ describe("ProtectedRoute", () => {
     expect(screen.getByText("secret content")).toBeInTheDocument();
   });
 });
+
+const InstructorOnly = () => <p>instructor content</p>;
+const DashStub = () => <p>dashboard page</p>;
+
+function renderInstructorRoute(store: ReturnType<typeof makeStore>) {
+  return renderWithProviders(
+    <Routes>
+      <Route path="/login" element={<LoginStub />} />
+      <Route path="/dashboard" element={<DashStub />} />
+      <Route
+        path="/instructor/courses/new"
+        element={<ProtectedRoute role="instructor"><InstructorOnly /></ProtectedRoute>}
+      />
+    </Routes>,
+    { store, route: "/instructor/courses/new" }
+  );
+}
+
+describe("ProtectedRoute with a role", () => {
+  // A signed-in student on an instructor-only route goes to their dashboard —
+  // NOT to /login, because they're already authenticated.
+  it("redirects a student to /dashboard from an instructor route", () => {
+    renderInstructorRoute(makeStore({ user: aUser({ role: "student" }), booted: true }));
+
+    expect(screen.getByText("dashboard page")).toBeInTheDocument();
+    expect(screen.queryByText("instructor content")).not.toBeInTheDocument();
+    expect(screen.queryByText("login page")).not.toBeInTheDocument();
+  });
+
+  // The matching role passes straight through to the child.
+  it("lets an instructor into an instructor route", () => {
+    renderInstructorRoute(makeStore({ user: aUser({ role: "instructor" }), booted: true }));
+    expect(screen.getByText("instructor content")).toBeInTheDocument();
+  });
+
+  // Signed-out users still get the login redirect even on role-gated routes.
+  it("still sends signed-out visitors to login", () => {
+    renderInstructorRoute(makeStore({ user: null, booted: true }));
+    expect(screen.getByText("login page")).toBeInTheDocument();
+  });
+});
