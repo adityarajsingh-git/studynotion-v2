@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { Types } from "mongoose";
 import { Category } from "../models/Category";
-import { Course, ICourse } from "../models/Course";
+import { Course, ICourse, ILesson } from "../models/Course";
 import { User } from "../models/User";
 
 // User-supplied search text is fed into a MongoDB $regex below. Escaping the
@@ -200,6 +200,140 @@ export async function deleteCourse(req: Request, res: Response) {
 
   await course.deleteOne();
   res.json({ success: true, message: "Course deleted" });
+}
+
+/**
+ * Shared preamble for the lesson endpoints: resolve the course and run it
+ * through the SAME ownership gate as updateCourse/deleteCourse — the denial
+ * semantics (draft → 404, published → 403) live in ownershipDenial and are
+ * not duplicated here. Writes the error response itself and returns null so
+ * each handler needs only a one-line guard.
+ */
+async function findOwnedCourse(req: Request, res: Response): Promise<ICourse | null> {
+  if (!Types.ObjectId.isValid(req.params.id)) {
+    res.status(404).json({ success: false, message: "Course not found" });
+    return null;
+  }
+  const course = await Course.findById(req.params.id);
+  if (!course) {
+    res.status(404).json({ success: false, message: "Course not found" });
+    return null;
+  }
+  const denial = ownershipDenial(course, req.user!.id);
+  if (denial === 404) {
+    res.status(404).json({ success: false, message: "Course not found" });
+    return null;
+  }
+  if (denial === 403) {
+    res.status(403).json({ success: false, message: "You do not own this course" });
+    return null;
+  }
+  return course;
+}
+
+/**
+ * Validates the only two fields a lesson payload may set — everything else in
+ * the body is ignored (same whitelist discipline as UPDATABLE_FIELDS, so a
+ * lesson can never smuggle arbitrary keys into the document). `title` is
+ * mandatory on create but optional on edit; `durationMin` is always optional
+ * (create defaults it to 0).
+ */
+function lessonPayloadError(body: Record<string, unknown>, requireTitle: boolean): string | null {
+  const { title, durationMin } = body;
+  if (title === undefined) {
+    if (requireTitle) return "title is required";
+  } else if (typeof title !== "string" || !title.trim()) {
+    return "title must be a non-empty string";
+  } else if (title.trim().length > 200) {
+    return "title must be at most 200 characters";
+  }
+  if (
+    durationMin !== undefined &&
+    (typeof durationMin !== "number" || !Number.isInteger(durationMin) || durationMin < 0)
+  )
+    return "durationMin must be a non-negative integer";
+  return null;
+}
+
+export async function addLesson(req: Request, res: Response) {
+  const course = await findOwnedCourse(req, res);
+  if (!course) return;
+
+  const body = req.body ?? {};
+  const error = lessonPayloadError(body, true);
+  if (error) return res.status(400).json({ success: false, message: error });
+
+  course.lessons.push({
+    title: (body.title as string).trim(),
+    durationMin: (body.durationMin as number | undefined) ?? 0,
+  } as ILesson);
+  await course.save();
+
+  // Mongoose assigned the _id during push — hand the subdocument back so the
+  // client can immediately target the new lesson for edit/delete/reorder.
+  const lesson = course.lessons[course.lessons.length - 1];
+  res.status(201).json({ success: true, lesson });
+}
+
+export async function updateLesson(req: Request, res: Response) {
+  const course = await findOwnedCourse(req, res);
+  if (!course) return;
+
+  // Lookup by string comparison: a malformed lessonId simply matches nothing,
+  // so it collapses into the same 404 as a nonexistent one (no CastError).
+  const lesson = course.lessons.find((l) => String(l._id) === req.params.lessonId);
+  if (!lesson) return res.status(404).json({ success: false, message: "Lesson not found" });
+
+  const body = req.body ?? {};
+  const error = lessonPayloadError(body, false);
+  if (error) return res.status(400).json({ success: false, message: error });
+
+  if (body.title !== undefined) lesson.title = (body.title as string).trim();
+  if (body.durationMin !== undefined) lesson.durationMin = body.durationMin as number;
+  await course.save();
+  res.json({ success: true, lesson });
+}
+
+export async function deleteLesson(req: Request, res: Response) {
+  const course = await findOwnedCourse(req, res);
+  if (!course) return;
+
+  const index = course.lessons.findIndex((l) => String(l._id) === req.params.lessonId);
+  if (index === -1) return res.status(404).json({ success: false, message: "Lesson not found" });
+
+  course.lessons.splice(index, 1);
+  await course.save();
+  res.json({ success: true, lessons: course.lessons });
+}
+
+export async function reorderLessons(req: Request, res: Response) {
+  const course = await findOwnedCourse(req, res);
+  if (!course) return;
+
+  const { order } = req.body ?? {};
+  if (!Array.isArray(order))
+    return res.status(400).json({ success: false, message: "order must be an array of lesson ids" });
+
+  // `order` must be an EXACT permutation of the current lesson ids. Anything
+  // looser corrupts the course: a short list silently drops lessons, unknown
+  // ids invent holes, duplicates clone entries. Checked BEFORE any mutation,
+  // so a rejected reorder leaves the lessons array untouched.
+  const current = course.lessons.map((l) => String(l._id));
+  const requested = order.map(String);
+  const isPermutation =
+    requested.length === current.length &&
+    new Set(requested).size === requested.length &&
+    requested.every((id) => current.includes(id));
+  if (!isPermutation)
+    return res.status(400).json({
+      success: false,
+      message: "order must be an exact permutation of the course's lesson ids",
+    });
+
+  const byId = new Map(course.lessons.map((l) => [String(l._id), l]));
+  course.lessons = requested.map((id) => byId.get(id)!);
+  await course.save();
+  res.json({ success: true, lessons: course.lessons });
 }
 
 export async function enroll(req: Request, res: Response) {
