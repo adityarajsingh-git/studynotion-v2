@@ -1,4 +1,9 @@
-const BASE = "/api/v2";
+// Split deploys (client on Netlify, API on Render) point this at the API's
+// public URL via VITE_API_URL — baked in at build time by Vite. Unset OR
+// empty falls back to the same-origin path the dev proxy serves. `||` rather
+// than `??` on purpose: copying client/.env.example leaves the var defined
+// but empty, and a "" base would send requests to fetch("/courses").
+const BASE = import.meta.env.VITE_API_URL || "/api/v2";
 
 export interface EnrolledCourse { _id: string; title: string; price: number; thumbnailColor: string }
 
