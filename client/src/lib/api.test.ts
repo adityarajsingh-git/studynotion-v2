@@ -135,3 +135,49 @@ describe("course builder API layer", () => {
     await expect(api.deleteLesson("c1", "nope")).rejects.toThrow("Lesson not found");
   });
 });
+
+// ——— Deploy config: base URL resolution ———
+// BASE is captured once at module load, so each case reloads ./api against a
+// stubbed import.meta.env instead of using the top-level import.
+describe("API base URL (VITE_API_URL)", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  async function loadApi() {
+    vi.resetModules();
+    return import("./api");
+  }
+
+  // Split deploy (client on Netlify, API on Render): the build bakes in the
+  // API's absolute URL and every request must hit it, not the same origin.
+  it("prefixes requests with VITE_API_URL when set", async () => {
+    vi.stubEnv("VITE_API_URL", "https://api.example.com/api/v2");
+    const { api: freshApi } = await loadApi();
+    await freshApi.courses();
+    const { url } = lastCall();
+    expect(url).toBe("https://api.example.com/api/v2/courses");
+  });
+
+  // Local dev / same-origin deploys: no env var keeps the relative base that
+  // the Vite dev proxy forwards to :4000.
+  it("falls back to /api/v2 when VITE_API_URL is unset", async () => {
+    vi.stubEnv("VITE_API_URL", undefined);
+    const { api: freshApi } = await loadApi();
+    await freshApi.courses();
+    const { url } = lastCall();
+    expect(url).toBe("/api/v2/courses");
+  });
+
+  // Copying client/.env.example leaves VITE_API_URL defined but EMPTY. That
+  // must still mean "same origin" — this pins the `||` (not `??`) in api.ts,
+  // which would otherwise produce a "" base and calls like fetch("/courses").
+  it("treats an empty VITE_API_URL as unset", async () => {
+    vi.stubEnv("VITE_API_URL", "");
+    const { api: freshApi } = await loadApi();
+    await freshApi.courses();
+    const { url } = lastCall();
+    expect(url).toBe("/api/v2/courses");
+  });
+});

@@ -62,6 +62,42 @@ npm run dev                 # http://localhost:5173 (proxies /api to :4000)
 
 Upgrading from a pre-`status` deploy: courses created before the draft/published field have no `status` and won't appear in the catalog. Re-run `npm run seed`.
 
+## Deployment
+
+The client and API deploy separately — any static host + any Node host works.
+The setup below is Netlify + Render, but nothing in the code depends on either.
+
+**API — e.g. a [Render](https://render.com) web service:**
+
+| Setting | Value |
+|---|---|
+| Root directory | `server/` |
+| Build command | `npm install && npm run build` |
+| Start command | `npm start` |
+| Env vars | `MONGODB_URL` (Atlas string) · `JWT_SECRET` (`openssl rand -hex 32`) · `CORS_ORIGIN` (your client URL) · `NODE_ENV=production` |
+
+The server **refuses to boot** outside dev/test if `MONGODB_URL` or `JWT_SECRET`
+is missing — a failed deploy beats a silently broken one. `PORT` is read from
+the environment, so hosts that inject it need no extra config.
+
+**Client — e.g. [Netlify](https://www.netlify.com):**
+
+| Setting | Value |
+|---|---|
+| Base directory | `client/` |
+| Build command | `npm run build` |
+| Publish directory | `client/dist` |
+| Env vars | `VITE_API_URL` — the API's public URL incl. prefix, e.g. `https://<your-api>.onrender.com/api/v2` |
+
+`VITE_API_URL` is baked in at **build time** (Vite static replacement), so
+changing it means rebuilding, not just redeploying. Left unset, the client
+calls the same-origin `/api/v2` — which is exactly what local dev's proxy
+expects, so no `.env` is needed for development.
+
+Multiple allowed origins (say, production + a preview URL) are supported —
+comma-separated, no spaces around commas:
+`CORS_ORIGIN=https://site.netlify.app,https://preview.example.com`
+
 ## Tests
 
 ```bash
