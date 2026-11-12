@@ -1,34 +1,38 @@
 # StudyNotion v2 — Roadmap
 
-Rebuilding in public, one commit at a time. `git commit -m "better than yesterday"`
+Rebuilding in public, one commit at a time. `(owner)` marks items that need a
+secret, a paid service or an owner decision.
 
-## ✅ Week 0 — Foundation (shipped)
-- [x] Monorepo: Vite + React + TS client, Express + TS server
-- [x] Auth: signup/login/me, bcrypt, JWT, role guards
-- [x] Models: User, Category, Course (+ lessons)
-- [x] Catalog with search + category filter, course details, enroll, dashboard
-- [x] Seed script, env examples, central error handling
+## Shipped
+- Monorepo: Vite + React + TS client, Express + TS server
+- Auth: signup/login/me, bcrypt, JWT, role guards, rate limiting, helmet
+- Catalog with search + category filter, course details, enroll, dashboard
+- Instructor course builder: create/edit form, draft/publish, delete guard,
+  lesson CRUD + reorder, role-aware dashboard with student counts
+- Seed script, env examples, central error handling, deploy docs
+- Server + client test suites, separate server typecheck gate
 
-## 🔨 Week 1 — Course builder (instructor side)
-- [ ] Create/edit course form (instructor dashboard tab)
-- [ ] Section + lesson CRUD endpoints and UI
-- [ ] Publish/draft states
-- [ ] My-courses view with student counts
+## Learner experience
+- [ ] Course page shows an "enrolled" state (link to dashboard) instead of an Enroll button when the user already owns the course
+- [ ] Catalog search waits for a short pause in typing instead of querying on every keystroke
+- [ ] Catalog shows a skeleton/"Loading" state that does not flash the empty message, and a Retry button on error
+- [ ] Course page error state has a "Back to catalog" link and a Retry button
+- [ ] Lesson completion tracking: user can mark lessons done and see progress % per course
+- [ ] Course player page with previous/next lesson navigation (needs lesson content model first)
+- [ ] Ratings & reviews: model, endpoints, UI
 
-## 🔨 Week 2 — Learning experience
-- [ ] Lesson completion tracking (progress % per course)
-- [ ] Course player page with lesson navigation
-- [ ] Ratings & reviews (model + endpoints + UI)
-- [ ] Cloudinary media upload for thumbnails
+## Reliability and accessibility
+- [ ] Document title updates per page (catalog, course title, dashboard)
+- [ ] Form errors are announced (`role="alert"`) and inputs have associated labels on login/signup
+- [ ] Expired token mid-session sends the user to login with a "session expired" message
 
-## 🔨 Week 3 — Payments & polish
-- [ ] Razorpay test-mode checkout for enrollment
-- [ ] Payment success/failure emails (Nodemailer)
-- [ ] Instructor income overview
-- [ ] Empty/loading/error states audit
+## Docs and quality
+- [ ] README test counts and project structure match the current code
+- [ ] CI workflow running both packages' build + tests (owner)
+- [ ] ESLint + Prettier config (owner)
 
-## 🔨 Week 4 — Ship
-- [ ] Deploy: client on Netlify/Vercel, API on Render, DB on Atlas
-- [ ] README screenshots + live demo link
-- [ ] Lighthouse pass (a11y + perf)
-- [ ] Announce: portfolio + LinkedIn post
+## Payments and media (owner)
+- [ ] Razorpay test-mode checkout for enrollment (owner)
+- [ ] Payment emails via Nodemailer (owner)
+- [ ] Cloudinary thumbnail upload (owner)
+- [ ] Deploy to Netlify/Render/Atlas, README screenshots and live demo link (owner)
