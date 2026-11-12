@@ -111,4 +111,17 @@ describe("CourseDetails", () => {
     release({ message: "done" });
     await waitFor(() => expect(screen.getByRole("button", { name: /Enroll/i })).toBeEnabled());
   });
+
+  it("shows an enrolled state instead of the Enroll button for an owned course", async () => {
+    vi.spyOn(api, "course").mockResolvedValue({ course });
+
+    renderDetails(makeStore({
+      user: aUser({ enrolledCourses: [{ _id: "c1", title: "React from Zero", price: 499, thumbnailColor: "#d9a54f" }] }),
+      booted: true,
+    }));
+
+    expect(await screen.findByText(/You're enrolled/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Go to dashboard/ })).toHaveAttribute("href", "/dashboard");
+    expect(screen.queryByRole("button", { name: /Enroll/i })).not.toBeInTheDocument();
+  });
 });

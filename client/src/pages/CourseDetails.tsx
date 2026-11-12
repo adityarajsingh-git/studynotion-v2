@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { api, ApiCourse } from "../lib/api";
 import { formatDuration, totalMinutes } from "../lib/format";
@@ -33,6 +33,7 @@ export default function CourseDetails() {
     }
   }
 
+  const enrolled = !!user?.enrolledCourses.some((c) => c._id === course._id);
   const mins = totalMinutes(course.lessons);
 
   return (
@@ -46,7 +47,14 @@ export default function CourseDetails() {
 
       <div className="mt-8 flex items-center gap-5">
         <span className="text-2xl font-bold text-cream">₹{course.price}</span>
-        {user
+        {enrolled
+          ? <>
+              <span className="font-semibold text-amber">✓ You're enrolled</span>
+              <Link to="/dashboard" className="rounded-xl border border-edge px-6 py-2.5 font-semibold text-cream hover:border-amber">
+                Go to dashboard
+              </Link>
+            </>
+          : user
           ? <button onClick={onEnroll} disabled={enrolling}
               className="rounded-xl bg-amber px-6 py-2.5 font-semibold text-ink hover:bg-amber-dark disabled:opacity-60">
               {enrolling ? "Enrolling…" : "Enroll"}

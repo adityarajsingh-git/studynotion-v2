@@ -13,7 +13,7 @@ secret, a paid service or an owner decision.
 - Server + client test suites, separate server typecheck gate
 
 ## Learner experience
-- [ ] Course page shows an "enrolled" state (link to dashboard) instead of an Enroll button when the user already owns the course
+- [x] Course page shows an "enrolled" state (link to dashboard) instead of an Enroll button when the user already owns the course
 - [ ] Catalog search waits for a short pause in typing instead of querying on every keystroke
 - [ ] Catalog shows a skeleton/"Loading" state that does not flash the empty message, and a Retry button on error
 - [ ] Course page error state has a "Back to catalog" link and a Retry button
