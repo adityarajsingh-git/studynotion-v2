@@ -42,6 +42,20 @@ describe("Catalog", () => {
     expect(screen.getByText(/Failed to fetch/)).toBeInTheDocument();
   });
 
+  it("retries the fetch when Retry is clicked", async () => {
+    vi.spyOn(api, "categories").mockResolvedValue({ categories: [] });
+    const spy = vi.spyOn(api, "courses")
+      .mockRejectedValueOnce(new Error("Failed to fetch"))
+      .mockResolvedValue({ courses: [aCourse({ _id: "c1", title: "React from Zero" })] });
+
+    renderWithProviders(<Catalog />);
+    await userEvent.click(await screen.findByRole("button", { name: "Retry" }));
+
+    expect(await screen.findByText("React from Zero")).toBeInTheDocument();
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText(/Couldn't load courses/)).not.toBeInTheDocument();
+  });
+
   it("passes the category filter through as a query param", async () => {
     vi.spyOn(api, "categories").mockResolvedValue({ categories: CATEGORIES });
     const spy = vi.spyOn(api, "courses").mockResolvedValue({ courses: [] });

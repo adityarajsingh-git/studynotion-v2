@@ -10,6 +10,7 @@ export default function Catalog() {
   const [query, setQuery] = useState("");
   const [state, setState] = useState<"loading" | "ok" | "error">("loading");
   const [err, setErr] = useState("");
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => { api.categories().then((d) => setCats(d.categories)).catch(() => {}); }, []);
 
@@ -27,7 +28,7 @@ export default function Catalog() {
     api.courses(q.toString() ? `?${q}` : "")
       .then((d) => { setCourses(d.courses); setState("ok"); })
       .catch((e) => { setErr(e.message); setState("error"); });
-  }, [cat, query]);
+  }, [cat, query, attempt]);
 
   return (
     <main className="mx-auto max-w-6xl px-5 py-12">
@@ -47,6 +48,10 @@ export default function Catalog() {
         <div className="mt-10 rounded-xl border border-edge bg-panel p-6 text-sm">
           <p className="text-red-400">Couldn't load courses: {err}</p>
           <p className="mt-2">Is the API running and seeded? <code className="text-amber">cd server && npm run dev</code> then <code className="text-amber">npm run seed</code>.</p>
+          <button onClick={() => setAttempt((n) => n + 1)}
+            className="mt-4 rounded-xl bg-amber px-4 py-2 text-sm font-semibold text-ink hover:bg-amber-dark">
+            Retry
+          </button>
         </div>
       )}
       {state === "ok" && (
