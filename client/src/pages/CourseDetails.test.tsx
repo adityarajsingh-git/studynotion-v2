@@ -56,6 +56,21 @@ describe("CourseDetails", () => {
     expect(await screen.findByText("Course not found")).toBeInTheDocument();
   });
 
+  it("offers Retry and a way back to the catalog when the fetch fails", async () => {
+    const spy = vi.spyOn(api, "course").mockRejectedValueOnce(new Error("Network down"));
+
+    renderDetails();
+
+    expect(await screen.findByText("Network down")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Back to catalog/i })).toHaveAttribute("href", "/courses");
+
+    spy.mockResolvedValue({ course });
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(await screen.findByRole("heading", { name: "React from Zero" })).toBeInTheDocument();
+    expect(screen.queryByText("Network down")).not.toBeInTheDocument();
+  });
+
   // Regression: enrolling hit the API but never refreshed the store, so the
   // dashboard still showed the empty state until a hard reload.
   it("refreshes the session after enrolling so the dashboard is up to date", async () => {

@@ -13,10 +13,29 @@ export default function CourseDetails() {
   const [course, setCourse] = useState<ApiCourse | null>(null);
   const [msg, setMsg] = useState("");
   const [enrolling, setEnrolling] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
-  useEffect(() => { if (id) api.course(id).then((d) => setCourse(d.course)).catch((e) => setMsg(e.message)); }, [id]);
+  useEffect(() => {
+    if (id) api.course(id).then((d) => setCourse(d.course)).catch((e) => setMsg(e.message));
+  }, [id, attempt]);
 
-  if (!course) return <main className="mx-auto max-w-4xl px-5 py-16">{msg || "Loading…"}</main>;
+  if (!course) {
+    if (!msg) return <main className="mx-auto max-w-4xl px-5 py-16">Loading…</main>;
+    return (
+      <main className="mx-auto max-w-4xl px-5 py-16">
+        <div role="alert" className="rounded-xl border border-edge bg-panel p-6">
+          <p className="text-amber">{msg}</p>
+          <div className="mt-4 flex items-center gap-4">
+            <button onClick={() => { setMsg(""); setAttempt((n) => n + 1); }}
+              className="rounded-xl bg-amber px-4 py-2 text-sm font-semibold text-ink hover:bg-amber-dark">
+              Retry
+            </button>
+            <Link to="/courses" className="text-sm text-cream hover:text-amber">← Back to catalog</Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   async function onEnroll() {
     setEnrolling(true);
