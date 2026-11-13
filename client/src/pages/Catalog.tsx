@@ -7,20 +7,27 @@ export default function Catalog() {
   const [cats, setCats] = useState<{ _id: string; name: string }[]>([]);
   const [cat, setCat] = useState("");
   const [search, setSearch] = useState("");
+  const [query, setQuery] = useState("");
   const [state, setState] = useState<"loading" | "ok" | "error">("loading");
   const [err, setErr] = useState("");
 
   useEffect(() => { api.categories().then((d) => setCats(d.categories)).catch(() => {}); }, []);
 
+  // Only the settled term hits the API; the input stays responsive on every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setQuery(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
   useEffect(() => {
     setState("loading");
     const q = new URLSearchParams();
     if (cat) q.set("category", cat);
-    if (search) q.set("search", search);
+    if (query) q.set("search", query);
     api.courses(q.toString() ? `?${q}` : "")
       .then((d) => { setCourses(d.courses); setState("ok"); })
       .catch((e) => { setErr(e.message); setState("error"); });
-  }, [cat, search]);
+  }, [cat, query]);
 
   return (
     <main className="mx-auto max-w-6xl px-5 py-12">

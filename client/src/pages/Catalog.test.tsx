@@ -72,4 +72,17 @@ describe("Catalog", () => {
 
     await waitFor(() => expect(spy).toHaveBeenCalledWith(""));
   });
+
+  it("waits for a pause in typing before searching", async () => {
+    vi.spyOn(api, "categories").mockResolvedValue({ categories: [] });
+    const spy = vi.spyOn(api, "courses").mockResolvedValue({ courses: [] });
+
+    renderWithProviders(<Catalog />);
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
+    await userEvent.type(screen.getByPlaceholderText(/Search courses/), "react");
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(2));
+    expect(spy).toHaveBeenLastCalledWith("?search=react");
+  });
 });
