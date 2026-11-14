@@ -33,6 +33,7 @@ describe("CourseDetails", () => {
     renderDetails();
 
     expect(await screen.findByRole("heading", { name: "React from Zero" })).toBeInTheDocument();
+    expect(document.title).toBe("React from Zero · StudyNotion");
     expect(screen.getByText("₹499")).toBeInTheDocument();
     expect(screen.getByText(/2 lessons · 1h 15m/)).toBeInTheDocument();
     expect(screen.getByText("1. Intro")).toBeInTheDocument();

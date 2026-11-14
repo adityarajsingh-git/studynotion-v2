@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import { useDocumentTitle } from "../lib/useDocumentTitle";
 import { api, ApiCourse } from "../lib/api";
 import CourseCard from "../components/CourseCard";
 
 export default function Catalog() {
+  useDocumentTitle("Catalog");
   const [courses, setCourses] = useState<ApiCourse[]>([]);
   const [cats, setCats] = useState<{ _id: string; name: string }[]>([]);
   const [cat, setCat] = useState("");

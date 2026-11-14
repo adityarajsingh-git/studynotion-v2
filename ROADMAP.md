@@ -22,7 +22,7 @@ secret, a paid service or an owner decision.
 - [ ] Ratings & reviews: model, endpoints, UI
 
 ## Reliability and accessibility
-- [ ] Document title updates per page (catalog, course title, dashboard)
+- [x] Document title updates per page (catalog, course title, dashboard)
 - [ ] Form errors are announced (`role="alert"`) and inputs have associated labels on login/signup
 - [ ] Expired token mid-session sends the user to login with a "session expired" message
 

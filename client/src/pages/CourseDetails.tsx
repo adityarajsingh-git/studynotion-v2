@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useDocumentTitle } from "../lib/useDocumentTitle";
 import { Link, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { api, ApiCourse } from "../lib/api";
@@ -14,6 +15,7 @@ export default function CourseDetails() {
   const [msg, setMsg] = useState("");
   const [enrolling, setEnrolling] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  useDocumentTitle(course?.title ?? "Course");
 
   useEffect(() => {
     if (id) api.course(id).then((d) => setCourse(d.course)).catch((e) => setMsg(e.message));

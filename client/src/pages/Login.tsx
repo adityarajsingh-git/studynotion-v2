@@ -1,10 +1,12 @@
 import { FormEvent, useEffect, useState } from "react";
+import { useDocumentTitle } from "../lib/useDocumentTitle";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../store/store";
 import { clearAuthError, login } from "../store/authSlice";
 
 export default function Login() {
+  useDocumentTitle("Log in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const { status, error } = useSelector((s: RootState) => s.auth);

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useDocumentTitle } from "../lib/useDocumentTitle";
 import { useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import { RootState } from "../store/store";
@@ -100,6 +101,7 @@ function EnrolledCourses({ enrolled }: { enrolled: { _id: string; title: string;
 }
 
 export default function Dashboard() {
+  useDocumentTitle("Dashboard");
   const user = useSelector((s: RootState) => s.auth.user)!;
 
   return (

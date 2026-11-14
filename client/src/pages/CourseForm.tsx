@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
+import { useDocumentTitle } from "../lib/useDocumentTitle";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, ApiLesson } from "../lib/api";
 import LessonEditor from "../components/LessonEditor";
@@ -23,6 +24,7 @@ type FormValues = typeof emptyForm;
 export default function CourseForm() {
   const { id } = useParams();
   const editing = Boolean(id);
+  useDocumentTitle(editing ? "Edit course" : "New course");
   const nav = useNavigate();
 
   const [form, setForm] = useState<FormValues>(emptyForm);

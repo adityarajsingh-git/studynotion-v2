@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useDocumentTitle } from "../lib/useDocumentTitle";
 
 const PILLARS = [
   { t: "Learn", d: "Structured courses with lesson-by-lesson progress — search and filter to find what fits." },
@@ -7,6 +8,7 @@ const PILLARS = [
 ];
 
 export default function Landing() {
+  useDocumentTitle();
   return (
     <main>
       <section className="mx-auto max-w-6xl px-5 pb-16 pt-20 text-center">
