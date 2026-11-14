@@ -29,11 +29,11 @@ export default function Signup() {
       <h1 className="text-3xl font-bold text-cream">Create your account</h1>
       <p className="mt-1 text-sm">Join as a student, or teach as an instructor.</p>
       <form onSubmit={onSubmit} className="mt-8 space-y-4">
-        <input value={form.name} onChange={set("name")} required placeholder="Full name"
+        <input value={form.name} onChange={set("name")} required placeholder="Full name" aria-label="Full name"
           className="w-full rounded-xl border border-edge bg-panel px-4 py-3 text-cream outline-none focus:border-amber" />
-        <input value={form.email} onChange={set("email")} type="email" required placeholder="Email"
+        <input value={form.email} onChange={set("email")} type="email" required placeholder="Email" aria-label="Email"
           className="w-full rounded-xl border border-edge bg-panel px-4 py-3 text-cream outline-none focus:border-amber" />
-        <input value={form.password} onChange={set("password")} type="password" required minLength={6} placeholder="Password (min 6 chars)"
+        <input value={form.password} onChange={set("password")} type="password" required minLength={6} placeholder="Password (min 6 chars)" aria-label="Password"
           className="w-full rounded-xl border border-edge bg-panel px-4 py-3 text-cream outline-none focus:border-amber" />
         <div className="flex gap-3">
           {(["student", "instructor"] as const).map((r) => (
@@ -43,7 +43,7 @@ export default function Signup() {
             </button>
           ))}
         </div>
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
         <button disabled={status === "loading"}
           className="w-full rounded-xl bg-amber py-3 font-semibold text-ink hover:bg-amber-dark disabled:opacity-60">
           {status === "loading" ? "Creating…" : "Sign up"}

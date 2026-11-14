@@ -27,6 +27,13 @@ describe("Login", () => {
     await userEvent.click(screen.getByRole("button", { name: /Log in/i }));
 
     expect(await screen.findByText("Invalid credentials")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Invalid credentials");
+  });
+
+  it("labels its inputs for assistive tech", () => {
+    renderWithProviders(<Login />);
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
+    expect(screen.getByLabelText("Password")).toBeInTheDocument();
   });
 
   // Regression: both forms read the same auth.error, so a signup failure
@@ -67,6 +74,11 @@ describe("Signup", () => {
     await userEvent.click(screen.getByRole("button", { name: /Sign up/i }));
 
     expect(spy).toHaveBeenCalledWith(expect.objectContaining({ role: "instructor" }));
+  });
+
+  it("labels its inputs for assistive tech", () => {
+    renderWithProviders(<Signup />);
+    for (const l of ["Full name", "Email", "Password"]) expect(screen.getByLabelText(l)).toBeInTheDocument();
   });
 
   it("clears an error left behind by the login form", () => {

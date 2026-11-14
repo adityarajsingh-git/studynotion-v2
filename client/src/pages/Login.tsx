@@ -27,11 +27,11 @@ export default function Login() {
       <h1 className="text-3xl font-bold text-cream">Welcome back</h1>
       <p className="mt-1 text-sm">Log in to continue learning.</p>
       <form onSubmit={onSubmit} className="mt-8 space-y-4">
-        <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required placeholder="Email"
+        <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required placeholder="Email" aria-label="Email"
           className="w-full rounded-xl border border-edge bg-panel px-4 py-3 text-cream outline-none focus:border-amber" />
-        <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required placeholder="Password"
+        <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required placeholder="Password" aria-label="Password"
           className="w-full rounded-xl border border-edge bg-panel px-4 py-3 text-cream outline-none focus:border-amber" />
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
         <button disabled={status === "loading"}
           className="w-full rounded-xl bg-amber py-3 font-semibold text-ink hover:bg-amber-dark disabled:opacity-60">
           {status === "loading" ? "Logging in…" : "Log in"}

@@ -23,7 +23,7 @@ secret, a paid service or an owner decision.
 
 ## Reliability and accessibility
 - [x] Document title updates per page (catalog, course title, dashboard)
-- [ ] Form errors are announced (`role="alert"`) and inputs have associated labels on login/signup
+- [x] Form errors are announced (`role="alert"`) and inputs have associated labels on login/signup
 - [ ] Expired token mid-session sends the user to login with a "session expired" message
 
 ## Docs and quality
