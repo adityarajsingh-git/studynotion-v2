@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useDocumentTitle } from "../lib/useDocumentTitle";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../store/store";
 import { clearAuthError, login } from "../store/authSlice";
@@ -12,6 +12,7 @@ export default function Login() {
   const { status, error } = useSelector((s: RootState) => s.auth);
   const dispatch = useDispatch<AppDispatch>();
   const nav = useNavigate();
+  const expired = (useLocation().state as { expired?: boolean } | null)?.expired;
 
   // Drop any error left over from the signup form.
   useEffect(() => { dispatch(clearAuthError()); }, [dispatch]);
@@ -26,6 +27,7 @@ export default function Login() {
     <main className="mx-auto max-w-md px-5 py-20">
       <h1 className="text-3xl font-bold text-cream">Welcome back</h1>
       <p className="mt-1 text-sm">Log in to continue learning.</p>
+      {expired && <p role="status" className="mt-4 rounded-xl border border-edge bg-panel px-4 py-3 text-sm text-amber">Your session expired. Please log in again.</p>}
       <form onSubmit={onSubmit} className="mt-8 space-y-4">
         <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required placeholder="Email" aria-label="Email"
           className="w-full rounded-xl border border-edge bg-panel px-4 py-3 text-cream outline-none focus:border-amber" />

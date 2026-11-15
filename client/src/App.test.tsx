@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { screen } from "@testing-library/react";
+import { act, screen } from "@testing-library/react";
+import { SESSION_EXPIRED } from "./lib/api";
 import App from "./App";
 import { aUser, makeStore, renderWithProviders } from "./test/utils";
 
@@ -61,5 +62,21 @@ describe("Navbar", () => {
     expect(screen.getByRole("link", { name: /Dashboard/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Log out/i })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /^Log in$/i })).not.toBeInTheDocument();
+  });
+});
+
+describe("session expiry", () => {
+  it("sends a signed-in user to login with a notice", () => {
+    const { store } = renderWithProviders(<App />, { store: makeStore({ user: aUser(), booted: true }), route: "/courses" });
+    act(() => { window.dispatchEvent(new Event(SESSION_EXPIRED)); });
+    expect(store.getState().auth.user).toBeNull();
+    expect(screen.getByRole("heading", { name: /Welcome back/i })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(/session expired/i);
+  });
+
+  it("leaves an anonymous visitor where they are", () => {
+    renderWithProviders(<App />, { route: "/courses" });
+    act(() => { window.dispatchEvent(new Event(SESSION_EXPIRED)); });
+    expect(screen.queryByRole("heading", { name: /Welcome back/i })).not.toBeInTheDocument();
   });
 });

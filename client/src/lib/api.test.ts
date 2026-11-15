@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, setToken } from "./api";
+import { api, setToken, SESSION_EXPIRED } from "./api";
 
 /** Minimal Response stand-ins — request() only touches ok/status/json(). */
 const ok = (data: unknown) =>
@@ -179,5 +179,30 @@ describe("API base URL (VITE_API_URL)", () => {
     await freshApi.courses();
     const { url } = lastCall();
     expect(url).toBe("/api/v2/courses");
+  });
+});
+
+describe("expired session", () => {
+  it("clears the token and signals expiry on a 401 with a token", async () => {
+    fetchMock.mockResolvedValue(fail(401, "Invalid or expired token"));
+    const fired = vi.fn();
+    window.addEventListener(SESSION_EXPIRED, fired);
+
+    await expect(api.me()).rejects.toThrow("Invalid or expired token");
+
+    window.removeEventListener(SESSION_EXPIRED, fired);
+    expect(fired).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem("sn2_token")).toBeNull();
+  });
+
+  it("does not treat a wrong-password 401 on login as expiry", async () => {
+    fetchMock.mockResolvedValue(fail(401, "Invalid credentials"));
+    const fired = vi.fn();
+    window.addEventListener(SESSION_EXPIRED, fired);
+
+    await expect(api.login({ email: "a@b.co", password: "x" })).rejects.toThrow("Invalid credentials");
+
+    window.removeEventListener(SESSION_EXPIRED, fired);
+    expect(fired).not.toHaveBeenCalled();
   });
 });

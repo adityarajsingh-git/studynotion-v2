@@ -24,7 +24,7 @@ secret, a paid service or an owner decision.
 ## Reliability and accessibility
 - [x] Document title updates per page (catalog, course title, dashboard)
 - [x] Form errors are announced (`role="alert"`) and inputs have associated labels on login/signup
-- [ ] Expired token mid-session sends the user to login with a "session expired" message
+- [x] Expired token mid-session sends the user to login with a "session expired" message
 
 ## Docs and quality
 - [ ] README test counts and project structure match the current code

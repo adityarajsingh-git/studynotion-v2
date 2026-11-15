@@ -47,6 +47,9 @@ export interface LessonPayload {
   durationMin?: number;
 }
 
+/** Fired by request() when the server rejects the stored token. */
+export const SESSION_EXPIRED = "sn2:session-expired";
+
 export function getToken() { return localStorage.getItem("sn2_token"); }
 export function setToken(t: string | null) {
   if (t) localStorage.setItem("sn2_token", t); else localStorage.removeItem("sn2_token");
@@ -62,6 +65,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       ...(options.headers || {}),
     },
   });
+  // A 401 on a token-bearing call means the token expired or was revoked
+  // (optionalAuth never 401s). Login/signup 401s are wrong credentials, not this.
+  if (res.status === 401 && token && !path.startsWith("/auth/login") && !path.startsWith("/auth/signup")) {
+    setToken(null);
+    window.dispatchEvent(new Event(SESSION_EXPIRED));
+  }
   const data = await res.json().catch(() => ({ success: false, message: "Bad response" }));
   if (!res.ok || data.success === false) throw new Error(data.message || `Request failed (${res.status})`);
   return data as T;
