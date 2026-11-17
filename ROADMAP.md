@@ -27,7 +27,7 @@ secret, a paid service or an owner decision.
 - [x] Expired token mid-session sends the user to login with a "session expired" message
 
 ## Docs and quality
-- [ ] README test counts and project structure match the current code
+- [x] README test counts and project structure match the current code
 - [ ] CI workflow running both packages' build + tests (owner)
 - [ ] ESLint + Prettier config (owner)
 

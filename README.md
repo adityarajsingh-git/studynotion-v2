@@ -26,7 +26,8 @@ React 18 · TypeScript · Vite · Tailwind CSS · Redux Toolkit · React Router 
 - 🔐 Auth — signup/login with hashed passwords, JWT sessions, role-based access (student/instructor)
 - 📚 Catalog — courses with category filter + search, powered by query params
 - 📄 Course pages — lessons, duration, instructor, enrollment
-- 🧑‍🎓 Dashboard — profile + enrolled courses
+- 🧑‍🎓 Dashboard — profile + enrolled courses (instructors: their courses with student counts)
+- 🧑‍🏫 Course builder — instructors create/edit courses, manage and reorder lessons, publish or unpublish
 - 🌱 Seed script — demo instructor + student, categories and courses in one command
 
 See [ROADMAP.md](./ROADMAP.md) for what's landing next — this repo is in active development.
@@ -101,8 +102,8 @@ comma-separated, no spaces around commas:
 ## Tests
 
 ```bash
-cd server && npm test     # 45 API tests — real routes against an in-memory MongoDB
-cd client && npm test     # 68 tests — store, components, pages (Vitest + Testing Library)
+cd server && npm test     # 112 API tests — real routes against an in-memory MongoDB
+cd client && npm test     # 129 tests — store, components, pages (Vitest + Testing Library)
 ```
 
 The server suite boots a throwaway `mongodb-memory-server` per run and drives the
@@ -116,17 +117,18 @@ server/src
 ├── config/        env + db connection
 ├── models/        User · Category · Course
 ├── middleware/    auth (JWT + roles) · error handling
-├── controllers/   auth · categories · courses
+├── controllers/   auth · categories · courses (incl. lessons)
 ├── routes/        /api/v2/*
+├── utils/         asyncHandler · jwt
 ├── app.ts         express app (exported for tests)
 └── seed.ts        demo data
 server/tests       API integration tests
 
 client/src
-├── lib/api.ts     typed fetch layer
+├── lib/           api (typed fetch layer) · format · useDocumentTitle
 ├── store/         Redux Toolkit (auth slice, session boot)
-├── components/    Navbar · CourseCard · ProtectedRoute · Footer
-└── pages/         Landing · Login · Signup · Catalog · CourseDetails · Dashboard
+├── components/    Navbar · CourseCard · LessonEditor · ProtectedRoute · Footer
+└── pages/         Landing · Login · Signup · Catalog · CourseDetails · CourseForm · Dashboard · NotFound
 ```
 
 ## Credits
