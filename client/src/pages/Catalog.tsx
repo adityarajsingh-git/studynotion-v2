@@ -23,13 +23,16 @@ export default function Catalog() {
   }, [search]);
 
   useEffect(() => {
+    // Cleanup flags a superseded request so a slow, older response can't overwrite a newer one.
+    let stale = false;
     setState("loading");
     const q = new URLSearchParams();
     if (cat) q.set("category", cat);
     if (query) q.set("search", query);
     api.courses(q.toString() ? `?${q}` : "")
-      .then((d) => { setCourses(d.courses); setState("ok"); })
-      .catch((e) => { setErr(e.message); setState("error"); });
+      .then((d) => { if (!stale) { setCourses(d.courses); setState("ok"); } })
+      .catch((e) => { if (!stale) { setErr(e.message); setState("error"); } });
+    return () => { stale = true; };
   }, [cat, query, attempt]);
 
   return (

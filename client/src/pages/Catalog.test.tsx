@@ -56,6 +56,24 @@ describe("Catalog", () => {
     expect(screen.queryByText(/Couldn't load courses/)).not.toBeInTheDocument();
   });
 
+  it("ignores a slow response that was superseded by a newer filter", async () => {
+    vi.spyOn(api, "categories").mockResolvedValue({ categories: CATEGORIES });
+    let resolveOld!: (v: { courses: ReturnType<typeof aCourse>[] }) => void;
+    vi.spyOn(api, "courses")
+      .mockReturnValueOnce(new Promise((r) => { resolveOld = r; }))
+      .mockResolvedValue({ courses: [aCourse({ _id: "c2", title: "Newer Result" })] });
+
+    renderWithProviders(<Catalog />);
+    await screen.findByRole("option", { name: "Web Development" });
+    await userEvent.selectOptions(screen.getByRole("combobox"), "cat1");
+    expect(await screen.findByText("Newer Result")).toBeInTheDocument();
+
+    resolveOld({ courses: [aCourse({ _id: "c1", title: "Older Result" })] });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.queryByText("Older Result")).not.toBeInTheDocument();
+    expect(screen.getByText("Newer Result")).toBeInTheDocument();
+  });
+
   it("passes the category filter through as a query param", async () => {
     vi.spyOn(api, "categories").mockResolvedValue({ categories: CATEGORIES });
     const spy = vi.spyOn(api, "courses").mockResolvedValue({ courses: [] });

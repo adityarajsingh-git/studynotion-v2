@@ -24,6 +24,7 @@ secret, a paid service or an owner decision.
 ## Reliability and accessibility
 - [x] Document title updates per page (catalog, course title, dashboard)
 - [x] Form errors are announced (`role="alert"`) and inputs have associated labels on login/signup
+- [x] Catalog ignores out-of-order responses: a slow older search can no longer overwrite newer results
 - [x] Expired token mid-session sends the user to login with a "session expired" message
 
 ## Docs and quality
